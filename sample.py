@@ -113,7 +113,6 @@ print()
 print("Starting modification session to reset value")
 sendPostRequest(f"projects/{projectId}/models/{modelId}/start-external-modification-session")
 try:
-    fireRating = f"F{randint(1, 200)}"
     print(f"Clearing FireRating of first row")
     changes = {
         "values": {
