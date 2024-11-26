@@ -8,7 +8,7 @@ apiUrl = "https://api.qonic.com/v1/"
 
 tokenResponse = login(
     issuer="https://release-qonic.eu.auth0.com",
-    client_id="yBoHANGQWFoMcM3uxk1CUI4G4vURmFn9",
+    client_id="9Jtp6GGNqPPJzvqNKRoQJ66A9juVbE8A",
     redirect_uri="http://localhost:34362",
     scope="openid profile email",
     audience="https://api.qonic.com")
@@ -32,9 +32,9 @@ def sendGetRequest(path, params=None):
         exit()
     return response.json()
 
-def sendPostRequest(path, data=None, json=None, params=None):
+def sendPostRequest(path, data=None, json=None, params=None, sessionId=str):
     try:
-        response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}"})
+        response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}", "X-Client-Session-Id": sessionId})
         response.raise_for_status()
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -85,7 +85,8 @@ print()
 
 
 print("Starting modification session")
-sendPostRequest(f"projects/{projectId}/models/{modelId}/start-external-modification-session")
+sessionId = str(uuid.uuid4())
+sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
 try:
     fireRating = f"F{randint(1, 200)}"
     print(f"Modifying FireRating of first row to {fireRating}")
@@ -96,10 +97,10 @@ try:
             }
         }
     }
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes)
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
 finally:
     print("Closing modification session")
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/end-external-modification-session")
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
 print("Modification is done")
 print()
 print("Quering data again")
@@ -111,7 +112,8 @@ print(propertiesJson["result"][0])
 
 print()
 print("Starting modification session to reset value")
-sendPostRequest(f"projects/{projectId}/models/{modelId}/start-external-modification-session")
+sessionId = str(uuid.uuid4())
+sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
 try:
     print(f"Clearing FireRating of first row")
     changes = {
@@ -121,10 +123,10 @@ try:
             }
         }
     }
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes)
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
 finally:
     print("Closing modification session")
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/end-external-modification-session")
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
 print("Modification is done")
 print()
 print("Quering data again")
