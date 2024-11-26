@@ -14,12 +14,32 @@ tokenResponse = login(
     scope="openid profile email",
     audience="https://api.qonic.com")
 
-def handleErrorResponse(availableDataResponse: requests.Response):
+class ModificationInputError:
+    def __init__(self, guid, field, error, description):
+        self.guid = guid
+        self.field = field
+        self.error = error
+        self.description = description
+    def __str__(self):
+        return f"{self.guid}: {self.field}: {self.error}: {self.description}"
+    def __repr__(self):
+        return f"{self.guid}: {self.field}: {self.error}: {self.description}"
+
+class ApiError:
+    def __init__(self, Error, ErrorDetails):
+        self.error = Error
+        self.details = ErrorDetails
+    def __str__(self):
+        return f"{self.error}: {self.details}"
+    def __repr__(self):
+        return f"{self.error}: {self.details}"
+
+def handleErrorResponse(response: requests.Response):
     try:
-        print(availableDataResponse.text)
+        apiError = ApiError(**response.json())
+        print(apiError)
     except Exception as err:
         print(f"Error occurred while processing error response: {err}")
-    exit()
 
 def sendGetRequest(path, params=None):
     try:
@@ -28,6 +48,7 @@ def sendGetRequest(path, params=None):
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
         handleErrorResponse(response)
+        exit()
     except Exception as err:
         print(f"Other error occurred: {err}")
         exit()
@@ -37,10 +58,11 @@ def sendPostRequest(path, data=None, json=None, params=None, sessionId=str):
     try:
         response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}", "X-Client-Session-Id": sessionId})
         response.raise_for_status()
-        print(response.text)
+        return response
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
         handleErrorResponse(response)
+        exit()
     except Exception as err:
         print(f"Other error occurred: {err}")
         exit()
@@ -101,7 +123,11 @@ try:
             }
         }
     }
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+    if len(errors) > 0:
+        print(str(errors))
+        exit()
 finally:
     print("Closing modification session")
     sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
@@ -128,7 +154,11 @@ try:
             }
         }
     }
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+    if len(errors) > 0:
+        print(errors)
+        exit()
 finally:
     print("Closing modification session")
     sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
