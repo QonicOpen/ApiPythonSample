@@ -85,7 +85,7 @@ print()
 modelId = input("Enter a model id: ")
 print()
 
-availableDataJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/external-query-available-data")
+availableDataJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products/available-data")
 print("fields:")
 for field in availableDataJson["fields"]:
     print(f"{field}")
@@ -99,7 +99,7 @@ fieldsStr = "Guid Class Name FireRating"
 params = list(map(lambda field: ("fields", field), re.split(r'[;,\s]+', fieldsStr)))
 # Filter on class Beam
 params.append(("filters[Class]", "Beam"))
-propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/external-query", params)
+propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
 
 print()
 for row in propertiesJson["result"]:
@@ -123,7 +123,7 @@ try:
             }
         }
     }
-    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
     errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
     if len(errors) > 0:
         print(str(errors))
@@ -135,7 +135,7 @@ print("Modification is done")
 print()
 print("Quering data again")
 
-propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/external-query", params)
+propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
 
 print("Showing only the first row:")
 print(propertiesJson["result"][0])
@@ -154,7 +154,7 @@ try:
             }
         }
     }
-    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/external-data-modification", json=changes, sessionId=sessionId)
+    response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
     errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
     if len(errors) > 0:
         print(errors)
@@ -166,7 +166,7 @@ print("Modification is done")
 print()
 print("Quering data again")
 
-propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/external-query", params)
+propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
 
 print("Showing only the first row:")
 print(propertiesJson["result"][0])
