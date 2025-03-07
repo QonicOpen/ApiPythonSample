@@ -229,7 +229,7 @@ elif choose.startswith("2"):
     sessionId = str(uuid.uuid4())
     newLibrary = (sendPostRequest(f"projects/{projectId}/Codifications", json= data, sessionId=sessionId)).json()
 
-    libraryId = newLibrary["libraryId"]
+    libraryId = newLibrary["libraryGuid"]
 
     #Add Codification to library
 
@@ -269,9 +269,10 @@ elif choose.startswith("3"):
 
     sessionId = str(uuid.uuid4())
     #Create new material library
-    newLibrary = (sendPostRequest(f"projects/{projectId}/material-libraries/TestMaterialLibrary/LibraryForTesting", sessionId=sessionId)).json()
 
-    libraryId = newLibrary["id"]
+    newLibrary = sendPostRequest(f"projects/{projectId}/material-libraries",json = {"Name" :"TestMaterial"}, sessionId=sessionId).json()
+
+    libraryId = newLibrary["guid"]
     #Add material
     newMaterial = {
         "name" : "Concrete",
@@ -288,11 +289,11 @@ elif choose.startswith("3"):
         "description": "concrete test material",
         "color": "#49C73EFF"
     }
-    newMaterialId = newMaterial["id"]
+    newMaterialId = newMaterial["guid"]
     sendPutRequest(f"projects/{projectId}/material-libraries/{libraryId}/materials/{newMaterialId}", json=updatedMaterial, sessionId= sessionId)
     materials = sendGetRequest(f"projects/{projectId}/material-libraries")
 
-    printMethods.printMaterials( [lib for lib in materials["materialProperties"] if lib["id"] == libraryId][0])
+    printMethods.printMaterials( [lib for lib in materials["materialProperties"] if lib["guid"] == libraryId][0])
     #Delete material
     print("Delete material again")
     sendDeleteRequest(f"projects/{projectId}/material-libraries/{libraryId}/materials/{newMaterialId}", sessionId=sessionId)
@@ -356,7 +357,7 @@ elif choose.startswith("5"):
         "EntityTypes" : [  {"Value": "IfcWall"}, {"Value": "IfcBeam"}, {"Value": "IfcSlab"}]
     }
     sessionId = str(uuid.uuid4())
-    addedSet =  (sendPostRequest(f"projects/{projectId}/customProperties/property-sets/", json= propertySetToAdd, sessionId=sessionId)).json()
+    addedSet =  (sendPostRequest(f"projects/{projectId}/customProperties/property-sets", json= propertySetToAdd, sessionId=sessionId)).json()
 
     print("Add property to set: TestProperty")
 
