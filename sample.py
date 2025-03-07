@@ -5,7 +5,7 @@ import uuid
 from oauth import login
 import printMethods
 
-apiUrl = "http://localhost:5006/v1/"
+apiUrl = "https://develop-api.qonic.com/v1/"
 
 tokenResponse = login(
     issuer="https://develop-qonic.eu.auth0.com",
