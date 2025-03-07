@@ -1,6 +1,6 @@
 def printCodificationLibrary(data):
     # Print Library
-    print(f"Library: {data['libraryId']}")
+    print(f"Library: {data['libraryGuid']}")
     
     # Print Codes
     print("Codes:")
@@ -14,7 +14,7 @@ def printCodificationLibrary(data):
 
 def printMaterials(data):
     print(f"Name: {data["name"]}")
-    print(f"Id: {data["id"]}")
+    print(f"Guid: {data["guid"]}")
     for material in data["properties"]:
         for property in material:
             print(f" {property["name"]} {property["value"]}")
