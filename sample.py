@@ -5,14 +5,14 @@ import uuid
 from oauth import login
 import printMethods
 
-apiUrl = "https://develop-api.qonic.com/v1/"
+apiUrl = "https://api.qonic.com/v1/"
 
 tokenResponse = login(
-    issuer="https://develop-qonic.eu.auth0.com",
-    client_id="dHXtN1ta43D9KKoOFGKXYWdBobBvACvW",
+    issuer="https://release-qonic.eu.auth0.com",
+    client_id="9Jtp6GGNqPPJzvqNKRoQJ66A9juVbE8A",
     redirect_uri="http://localhost:34362",
     scope="openid profile email",
-    audience="https://develop-api.qonic.com")
+    audience="https://api.qonic.com")
 
 class ModificationInputError:
     def __init__(self, guid, field, error, description):
