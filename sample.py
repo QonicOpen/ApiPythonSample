@@ -25,19 +25,9 @@ class ModificationInputError:
     def __repr__(self):
         return f"{self.guid}: {self.field}: {self.error}: {self.description}"
 
-class ApiError:
-    def __init__(self, Error, ErrorDetails):
-        self.error = Error
-        self.details = ErrorDetails
-    def __str__(self):
-        return f"{self.error}: {self.details}"
-    def __repr__(self):
-        return f"{self.error}: {self.details}"
-
 def handleErrorResponse(response: requests.Response):
     try:
-        apiError = ApiError(**response.json())
-        print(apiError)
+        print(response.json())
     except Exception as err:
         print(f"Error occurred while processing error response: {err}")
 
