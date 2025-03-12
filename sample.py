@@ -475,6 +475,8 @@ elif choose.startswith("6"):
     print("Deleting the first wall")
 
     guid = propertiesJson["result"][0]["Guid"]
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+
     try:
         sendDeleteRequest(f"projects/{projectId}/models/{modelId}/products/{guid}", sessionId=sessionId)
     
