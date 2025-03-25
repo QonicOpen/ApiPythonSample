@@ -143,98 +143,111 @@ if choose.startswith("1"):
 
     print("Starting modification session")
 
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
-    try:
-        fireRating = f"F{randint(1, 200)}"
-        print(f"Modifying FireRating of first row to {fireRating}")
-        changes = {
-            "add": {
-                "FireRating": {
-                    propertiesJson["result"][0]["Guid"]: {
-                        "PropertySet": "Pset_BeamCommon",
-                        "Value": fireRating
+
+    if len(propertiesJson["result"]) > 0:
+        currentFireRating = propertiesJson["result"][0]["FireRating"]
+ 
+        if currentFireRating["PropertySet"] == "" and currentFireRating["Value"] == "":
+
+            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+            try:
+                fireRating = f"F{randint(1, 200)}"
+
+                print(f"Adding FireRating to first row  {fireRating}")
+                changes = {
+                    "add": {
+                        "FireRating": {
+                            propertiesJson["result"][0]["Guid"]: {
+                                "PropertySet": "Pset_BeamCommon",
+                                "Value": fireRating
+                            }
+                        }
                     }
                 }
-            }
-        }
-        response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-        errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
-        if len(errors) > 0:
-            print(str(errors))
-            exit()
-    finally:
-        print("Closing modification session")
-        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
-    print("Modification is done")
-    print()
-    print("Quering data again")
+                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                if len(errors) > 0:
+                    print(str(errors))
+                    exit()
+            finally:
+                print("Closing modification session")
+                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+            print("Modification is done")
+            print()
+            print("Quering data again")
 
-    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
 
-    print("Showing only the first row:")
-    print(propertiesJson["result"][0])
+            print("Showing only the first row:")
+            print(propertiesJson["result"][0])
 
-    print()
-    print("Starting modification session to reset value")
-    sessionId = str(uuid.uuid4())
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
-    try:
-        fireRating = f"F{randint(1, 200)}"
-        print(f"Clearing FireRating of first row")
-        changes = {
-            "update": {
-                "FireRating": {
-                    propertiesJson["result"][0]["Guid"]: None
+            print()
+            print("Starting modification session to reset value")
+            sessionId = str(uuid.uuid4())
+            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+
+            try:
+                fireRating = f"F{randint(1, 200)}"
+                print(f"Clearing FireRating of first row")
+                changes = {
+                    "update": {
+                        "FireRating": {
+                            propertiesJson["result"][0]["Guid"]: None
+                        }
+                    }
                 }
-            }
-        }
-        response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-        errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
-        if len(errors) > 0:
-            print(errors)
-            exit()
-    finally:
-        print("Closing modification session")
-        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
-    print("Modification is done")
-    print()
-    print("Quering data again")
+                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                if len(errors) > 0:
+                    print(errors)
+                    exit()
+            finally:
+                print("Closing modification session")
+                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+            print("Modification is done")
+            print()
+            print("Quering data again")
 
-    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
 
-    print("Showing only the first row:")
-    print(propertiesJson["result"][0])
+            print("Showing only the first row:")
+            print(propertiesJson["result"][0])
 
-    print()
-    print("Starting modification to delete propety")
-    sessionId = str(uuid.uuid4())
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
-    try:
-        fireRating = f"F{randint(1, 200)}"
-        print(f"Clearing FireRating of first row")
-        changes = {
-            "delete": {
-                "FireRating": {
-                    propertiesJson["result"][0]["Guid"]: None
+            print()
+            print("Starting modification to delete propety")
+            sessionId = str(uuid.uuid4())
+            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+
+    
+            try:
+                fireRating = f"F{randint(1, 200)}"
+                print(f"Clearing FireRating of first row")
+                changes = {
+                    "delete": {
+                        "FireRating": {
+                            propertiesJson["result"][0]["Guid"]: None
+                        }
+                    }
                 }
-            }
-        }
-        response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-        errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
-        if len(errors) > 0:
-            print(errors)
-            exit()
-    finally:
-        print("Closing modification session")
-        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
-    print("Modification is done")
-    print()
-    print("Quering data again")
+                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                if len(errors) > 0:
+                    print(errors)
+                    exit()
+            finally:
+                print("Closing modification session")
+                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+            print("Modification is done")
+            print()
+            print("Quering data again")
 
-    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
-    print("Showing only the first row:")
-    print(propertiesJson["result"][0])
-
+            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+            print("Showing only the first row:")
+            print(propertiesJson["result"][0])
+        else:
+            print("Beam already has a fire rating a change modification needed")
+    else:
+        print("No beams to add a fire rating to")
 elif choose.startswith("2"):
     print("Showing first codification library")
     codes = sendGetRequest(f"projects/{projectId}/Codifications")
