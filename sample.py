@@ -14,6 +14,7 @@ tokenResponse = login(
     scope="openid profile email",
     audience="https://api.qonic.com")
 
+
 class ModificationInputError:
     def __init__(self, guid, field, error, description):
         self.guid = guid
@@ -104,6 +105,7 @@ print("2: Codifcations")
 print("3: Materials")
 print("4: Locations")
 print("5: CustomProperties")
+print("6: Delete Product")
 choose = input()
 
 print()
@@ -127,26 +129,27 @@ if choose.startswith("1"):
     print("Quering the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
     print()
     # Query the Guid, Class, Name and FireRating fields
-    fieldsStr = "Guid Class Name FireRating"
-    params = list(map(lambda field: ("fields", field), re.split(r'[;,\s]+', fieldsStr)))
     # Filter on class Beam
-    params.append(("filters[Class]", "Beam"))
-    propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
+    params = { "Fields": ["Guid", "Class", "Name", "FireRating"],
+    "Filters" : {"Class": "Beam"}}
+    sessionId = str(uuid.uuid4())
+    properties = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId)
 
     print()
+    propertiesJson = properties.json()
     for row in propertiesJson["result"]:
         print(f"{row}")
 
     print()
 
     print("Starting modification session")
-    sessionId = str(uuid.uuid4())
+
     sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
     try:
         fireRating = f"F{randint(1, 200)}"
         print(f"Modifying FireRating of first row to {fireRating}")
         changes = {
-            "values": {
+            "add": {
                 "FireRating": {
                     propertiesJson["result"][0]["Guid"]: {
                         "PropertySet": "Pset_BeamCommon",
@@ -167,7 +170,7 @@ if choose.startswith("1"):
     print()
     print("Quering data again")
 
-    propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
+    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
 
     print("Showing only the first row:")
     print(propertiesJson["result"][0])
@@ -180,7 +183,7 @@ if choose.startswith("1"):
         fireRating = f"F{randint(1, 200)}"
         print(f"Clearing FireRating of first row")
         changes = {
-            "values": {
+            "update": {
                 "FireRating": {
                     propertiesJson["result"][0]["Guid"]: None
                 }
@@ -198,8 +201,38 @@ if choose.startswith("1"):
     print()
     print("Quering data again")
 
-    propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
+    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
 
+    print("Showing only the first row:")
+    print(propertiesJson["result"][0])
+
+    print()
+    print("Starting modification to delete propety")
+    sessionId = str(uuid.uuid4())
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+    try:
+        fireRating = f"F{randint(1, 200)}"
+        print(f"Clearing FireRating of first row")
+        changes = {
+            "delete": {
+                "FireRating": {
+                    propertiesJson["result"][0]["Guid"]: None
+                }
+            }
+        }
+        response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+        errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+        if len(errors) > 0:
+            print(errors)
+            exit()
+    finally:
+        print("Closing modification session")
+        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+    print("Modification is done")
+    print()
+    print("Quering data again")
+
+    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
     print("Showing only the first row:")
     print(propertiesJson["result"][0])
 
@@ -389,7 +422,7 @@ elif choose.startswith("5"):
     sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
     try:
         changes = {
-            "values": {
+            "add": {
                 "TestProperty": {
                     propertiesJson["result"][0]["Guid"]: {
                         "PropertySet": "TestSet",
@@ -404,10 +437,60 @@ elif choose.startswith("5"):
             print(str(errors))
             exit()
 
-
     finally:
         print("Closing modification session")
         sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+
+elif choose.startswith("6"):
+
+    modelsJson = sendGetRequest(f"projects/{projectId}/models")
+    print("your models:")
+    for model in modelsJson["models"]:
+        print(f"{model['id']} - {model['name']}")
+    print()
+
+    modelId = input("Enter a model id: ")
+    print()
+
+    availableDataJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products/available-data")
+    print("fields:")
+    for field in availableDataJson["fields"]:
+        print(f"{field}")
+    print()
+
+
+    print("Quering the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
+    print()
+    # Query the Guid, Class, Name and FireRating fields
+    # Filter on class Beam
+    params = { "Fields": ["Guid", "Class", "Name"],
+    "Filters" : {"Class": "Wall"}}
+    sessionId = str(uuid.uuid4())
+
+    properties = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId)
+
+    propertiesJson = properties.json()
+    initialAmountOfWalls = len(propertiesJson["result"])
+    print(f"Found{initialAmountOfWalls} walls")
+
+    print("Deleting the first wall")
+
+    guid = propertiesJson["result"][0]["Guid"]
+    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+
+    try:
+        sendDeleteRequest(f"projects/{projectId}/models/{modelId}/products/{guid}", sessionId=sessionId)
+    
+    finally:
+        print("Closing modification session")
+        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+    print("Modification is done")
+    print()
+    print("Quering data again")
+
+    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+    amountAfterDelete = len(propertiesJson["result"])
+    print(f"Found {amountAfterDelete }walls")
 
    
   
