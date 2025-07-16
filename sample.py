@@ -284,14 +284,14 @@ elif choose.startswith("2"):
     updatedCode = {
     "name": "updatedName"
     }
-    sendPutRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]["value"]}", json = updatedCode, sessionId=sessionId)
+    sendPutRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]['value']}", json = updatedCode, sessionId=sessionId)
     #View specific library
     print("Show new library")
     newlyAddedLibrary = sendGetRequest(f"projects/{projectId}/codifications/{libraryId}")
     printMethods.printCodificationLibrary(newlyAddedLibrary)
     #Delete Codification
     print("Delete newly added code")
-    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]["value"]}", json = updatedCode, sessionId=sessionId)
+    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]['value']}", json = updatedCode, sessionId=sessionId)
     #Delete new CodificationLibrary
     print("Delete new library")
     sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}", sessionId=sessionId)
@@ -401,7 +401,7 @@ elif choose.startswith("5"):
         "DataType": "String"
     }
 
-    addedProperty = sendPostRequest(f"projects/{projectId}/customProperties/property-sets/{addedSet["id"]}/property",json=propertyToAdd, sessionId=sessionId)
+    addedProperty = sendPostRequest(f"projects/{projectId}/customProperties/property-sets/{addedSet['id']}/property",json=propertyToAdd, sessionId=sessionId)
 
     print("Choose model to add this property to")
 
