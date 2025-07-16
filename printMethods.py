@@ -13,18 +13,18 @@ def printCodificationLibrary(data):
         print("-----------------------------------------")
 
 def printMaterials(data):
-    print(f"Name: {data["name"]}")
-    print(f"Guid: {data["guid"]}")
+    print(f"Name: {data['name']}")
+    print(f"Guid: {data['guid']}")
     for material in data["properties"]:
         for property in material:
-            print(f" {property["name"]} {property["value"]}")
+            print(f" {property['name']} {property['value']}")
         print("-----------------------------------------")
 
 
 
 def printLocations(data, level = 0):
     extraspaces = level*2 * ' '
-    print(f"{extraspaces}Name: {data["name"]}")
+    print(f"{extraspaces}Name: {data['name']}")
     print("Properties:")
     for property in data["properties"]:
     # Print each set, name, and value
@@ -37,11 +37,11 @@ def printLocations(data, level = 0):
 def printCustomProperties(data):
     print(data["libraryId"])
     for set in data["sets"]:
-        print(f"  Id:{set["id"]}")
-        print(f"  Name:{set["name"]}")
+        print(f"  Id:{set['id']}")
+        print(f"  Name:{set['name']}")
         print("  Properties:")
         for propdef in set["propertyDefinitions"]:
-            print(f"    Id:{propdef["id"]} Guid:{propdef["guid"]} Name:{propdef["name"]} DataType:{propdef["dataType"]} MeasureType:{propdef["measureType"]} Unit:{propdef["unitName"]}") 
+            print(f"    Id:{propdef['id']} Guid:{propdef['guid']} Name:{propdef['name']} DataType:{propdef['dataType']} MeasureType:{propdef['measureType']} Unit:{propdef['unitName']}")
 
     
     
