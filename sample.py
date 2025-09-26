@@ -264,7 +264,7 @@ elif choose.startswith("2"):
     sessionId = str(uuid.uuid4())
     newLibrary = (sendPostRequest(f"projects/{projectId}/Codifications", json= data, sessionId=sessionId)).json()
 
-    libraryId = newLibrary["libraryGuid"]
+    libraryId = newLibrary["guid"]
 
     #Add Codification to library
 
@@ -277,21 +277,20 @@ elif choose.startswith("2"):
     print("Adding new root code the library")
     newCode = (sendPostRequest(f"projects/{projectId}/codifications/{libraryId}/codification", json = newCodeToAdd, sessionId=sessionId)).json()
 
-    code = [item for item in newCode["properties"] if item["name"] == "Guid"]
-
     #Update Codification
     print("updating the name of the new code from NewRootcode to  updatedName")
     updatedCode = {
     "name": "updatedName"
     }
-    sendPutRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]['value']}", json = updatedCode, sessionId=sessionId)
+    sendPutRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{newCode['guid']}", json = updatedCode, sessionId=sessionId)
     #View specific library
     print("Show new library")
     newlyAddedLibrary = sendGetRequest(f"projects/{projectId}/codifications/{libraryId}")
     printMethods.printCodificationLibrary(newlyAddedLibrary)
+
     #Delete Codification
     print("Delete newly added code")
-    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{code[0]['value']}", json = updatedCode, sessionId=sessionId)
+    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{newCode['guid']}", json = updatedCode, sessionId=sessionId)
     #Delete new CodificationLibrary
     print("Delete new library")
     sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}", sessionId=sessionId)
