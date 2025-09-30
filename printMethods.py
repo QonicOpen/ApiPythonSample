@@ -1,15 +1,13 @@
 def printCodificationLibrary(data):
     # Print Library
-    print(f"Library: {data['libraryGuid']}")
+    print(f"Library: {data['name']}")
     
     # Print Codes
     print("Codes:")
     
     # Loop through classifications and properties
-    for classification in data["codes"]["classifications"]:
-        for property in classification["properties"]:
-            # Print each set, name, and value
-            print(f" {property['name']} {property['value']}")
+    for classification in data["codes"]:
+        print(f" {classification['identification']} {classification['name']}")
         print("-----------------------------------------")
 
 def printMaterials(data):
