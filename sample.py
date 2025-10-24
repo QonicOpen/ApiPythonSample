@@ -149,7 +149,7 @@ if choose.startswith("1"):
     if len(propertiesJson["result"]) > 0:
         currentFireRating = propertiesJson["result"][0]["FireRating"]
  
-        if currentFireRating["PropertySet"] == "" and currentFireRating["Value"] == "":
+        if currentFireRating["PropertySet"] == None and currentFireRating["Value"] == None:
 
             sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
             try:
