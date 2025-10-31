@@ -4,15 +4,12 @@ import re
 import uuid
 from oauth import login
 import printMethods
+import os
 
-apiUrl = "https://api.qonic.com/v1/"
-
-tokenResponse = login(
-    issuer="https://release-qonic.eu.auth0.com",
-    client_id="9Jtp6GGNqPPJzvqNKRoQJ66A9juVbE8A",
-    redirect_uri="http://localhost:34362",
-    scope="openid profile email",
-    audience="https://api.qonic.com")
+apiUrl = os.getenv("API_URL", "https://api.qonic.com/v1/")
+accessToken = os.getenv("ACCESS_TOKEN")
+if not accessToken:
+    accessToken = login()['accessToken']
 
 class ModificationInputError:
     def __init__(self, guid, field, error, description):
@@ -33,7 +30,7 @@ def handleErrorResponse(response: requests.Response):
 
 def sendGetRequest(path, params=None):
     try:
-        response = requests.get(f"{apiUrl}{path}", params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}"})
+        response = requests.get(f"{apiUrl}{path}", params=params,  headers={"Authorization": f"Bearer {accessToken}"})
         response.raise_for_status()
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -46,7 +43,7 @@ def sendGetRequest(path, params=None):
 
 def sendPostRequest(path, data=None, json=None, params=None, sessionId=str):
     try:
-        response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}", "X-Client-Session-Id": sessionId})
+        response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
         response.raise_for_status()
         return response
     except requests.HTTPError as http_err:
@@ -59,7 +56,7 @@ def sendPostRequest(path, data=None, json=None, params=None, sessionId=str):
 
 def sendDeleteRequest(path, data=None, json=None, params=None, sessionId=str):
     try:
-        response = requests.delete(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}", "X-Client-Session-Id": sessionId})
+        response = requests.delete(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
         response.raise_for_status()
         return response
     except requests.HTTPError as http_err:
@@ -72,7 +69,7 @@ def sendDeleteRequest(path, data=None, json=None, params=None, sessionId=str):
 
 def sendPutRequest(path, data=None, json=None, params=None, sessionId=str):
     try:
-        response = requests.put(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {tokenResponse.access_token}", "X-Client-Session-Id": sessionId})
+        response = requests.put(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
         response.raise_for_status()
         return response
     except requests.HTTPError as http_err:
@@ -164,8 +161,8 @@ if choose.startswith("1"):
                         }
                     }
                 }
-                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
                 if len(errors) > 0:
                     print(str(errors))
                     exit()
@@ -196,8 +193,8 @@ if choose.startswith("1"):
                         }
                     }
                 }
-                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
                 if len(errors) > 0:
                     print(errors)
                     exit()
@@ -229,8 +226,8 @@ if choose.startswith("1"):
                         }
                     }
                 }
-                response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
                 if len(errors) > 0:
                     print(errors)
                     exit()
@@ -442,8 +439,8 @@ elif choose.startswith("5"):
                 }
             }
         }
-        response = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-        errors =  list(map(lambda json: ModificationInputError(**json), response.json()["errors"]))
+        productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
+        errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
         if len(errors) > 0:
             print(str(errors))
             exit()
