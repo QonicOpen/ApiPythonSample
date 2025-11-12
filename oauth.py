@@ -13,11 +13,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = os.getenv("API_URL", "https://api.qonic.com/v1").rstrip('/')
-SCOPE = os.getenv("SCOPES", "projects:read projects:write models:read models:write issues:read libraries:read libraries:write")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8765/callback")
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+API_URL = os.getenv("QONIC_API_URL", "https://api.qonic.com/v1").rstrip('/')
+SCOPE = os.getenv("QONIC_SCOPES", "projects:read projects:write models:read models:write issues:read libraries:read libraries:write")
+REDIRECT_URI = os.getenv("QONIC_REDIRECT_URI", "http://localhost:8765/callback")
+LOCAL_PORT = os.getenv("QONIC_LOCAL_PORT", 8765)
+CLIENT_ID = os.getenv("QONIC_CLIENT_ID")
+CLIENT_SECRET = os.getenv("QONIC_CLIENT_SECRET")
 
 # --- PKCE helpers ------------------------------------------------------------
 
@@ -61,8 +62,8 @@ class OAuthHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
 
-def run_local_server(port=8765):
-    server = http.server.HTTPServer(("127.0.0.1", port), OAuthHandler)
+def run_local_server():
+    server = http.server.HTTPServer(("127.0.0.1", int(LOCAL_PORT)), OAuthHandler)
     thread = threading.Thread(target=server.handle_request)
     thread.start()
     thread.join()

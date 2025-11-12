@@ -6,8 +6,8 @@ from oauth import login
 import printMethods
 import os
 
-apiUrl = os.getenv("API_URL", "https://api.qonic.com/v1/")
-accessToken = os.getenv("ACCESS_TOKEN")
+apiUrl = os.getenv("QONIC_API_URL", "https://api.qonic.com/v1/")
+accessToken = os.getenv("QONIC_ACCESS_TOKEN")
 if not accessToken:
     accessToken = login()['accessToken']
 
