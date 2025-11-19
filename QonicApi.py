@@ -138,10 +138,10 @@ class QonicApi:
         }
         return self._post(f"projects/{project_id}/models/{model_id}/products/query", json=body).get("result", {})
 
-    def calculate_quantities(self, project_id: str, model_id: str, fields: Iterable[str],
+    def calculate_quantities(self, project_id: str, model_id: str, calculators: Iterable[str],
                              filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
         body = {
-            "fields": list(fields),
+            "calculators": list(calculators),
             "filters": filters or {},
         }
         return self._post(f"projects/{project_id}/models/{model_id}/quantities", json=body)
