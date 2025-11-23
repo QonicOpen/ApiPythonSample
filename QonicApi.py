@@ -114,7 +114,7 @@ class QonicApi:
         return None
 
     def authorize(self):
-        self.access_token = login()["accessToken"]
+        self.access_token = login()["access_token"]
 
     def list_projects(self) -> List[Any]:
         return self.get("projects").get("projects", [])
