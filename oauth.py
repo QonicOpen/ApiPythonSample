@@ -80,12 +80,12 @@ def login() -> dict:
 
     # 2) Open authorize URL (with PKCE + state)
     params = {
-        "clientId": CLIENT_ID,
+        "client_id": CLIENT_ID,
         "scope": SCOPE,
-        "redirectUri": REDIRECT_URI,
+        "redirect_uri": REDIRECT_URI,
         "state": state,
-        "codeChallenge": code_challenge,
-        "codeChallengeMethod": "S256",
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
     }
     url = f"{API_URL}/auth/authorize?{urllib.parse.urlencode(params)}"
     print("Open this URL to authorize:")
@@ -110,11 +110,11 @@ def login() -> dict:
     resp = requests.post(
         f"{API_URL}/auth/token",
         data={
-            "clientId": CLIENT_ID,
-            "clientSecret": CLIENT_SECRET,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
             "code": code,
-            "redirectUri": REDIRECT_URI,
-            "codeVerifier": code_verifier,
+            "redirect_uri": REDIRECT_URI,
+            "code_verifier": code_verifier,
         },
         timeout=30,
     )

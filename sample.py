@@ -9,7 +9,7 @@ import os
 apiUrl = os.getenv("QONIC_API_URL", "https://api.qonic.com/v1/")
 accessToken = os.getenv("QONIC_ACCESS_TOKEN")
 if not accessToken:
-    accessToken = login()['accessToken']
+    accessToken = login()['access_token']
 
 class ModificationInputError:
     def __init__(self, guid, field, error, description):
