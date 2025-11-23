@@ -115,6 +115,7 @@ def login() -> dict:
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": code_verifier,
+            "grant_type": "authorization_code"
         },
         timeout=30,
     )
