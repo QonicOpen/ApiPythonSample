@@ -9,7 +9,7 @@ Follow these steps to configure and run the Python example for the Qonic API.
 ### 1. Prerequisites
 
 -	Python 3.10+
--	A Qonic Application in the Developer Portal
+-	A Qonic Application in the [Developer Portal](https://developer.qonic.com)
 
 You’ll need:
 - Client ID and Client Secret
