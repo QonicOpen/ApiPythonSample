@@ -78,7 +78,7 @@ def handle_model_queries(api: QonicApi, project_id: str):
                 api.end_session(project_id, model_id)
             print("Modification is done")
             print()
-            print("Quering data igen")
+            print("Querying data again")
 
             properties = api.query_products(
                 project_id,
