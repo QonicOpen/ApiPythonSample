@@ -107,7 +107,7 @@ def login() -> dict:
         raise SystemExit("No code received from Qonic!")
 
     # 4) Exchange code for tokens (include codeVerifier)
-    resp = requests.post(
+    response = requests.post(
         f"{API_URL}/auth/token",
         data={
             "client_id": CLIENT_ID,
@@ -118,9 +118,12 @@ def login() -> dict:
             "grant_type": "authorization_code"
         },
         timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    ).json()
+
+    if 'access_token' not in response:
+        raise SystemExit(f"Token exchange failed: {response}")
+
+    return response
 
 if __name__ == "__main__":
     print(login())
