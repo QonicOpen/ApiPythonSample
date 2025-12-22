@@ -3,6 +3,7 @@ from random import randint
 import time
 import os
 import json
+from typing import Callable
 
 import requests
 from QonicApi import QonicApi
@@ -535,6 +536,7 @@ def handle_export_model(api: "QonicApi", project_id: str) -> None:
                 f.write(chunk)
     print(f"IFC file saved to {output_path}")
 
+
 def handle_calculate_quantities(api: QonicApi, project_id: str):
     models = api.list_models(project_id)
     if not models:
@@ -579,56 +581,67 @@ def handle_calculate_quantities(api: QonicApi, project_id: str):
     print("Quantities result:")
     print(json.dumps(data, indent=2))
 
+def _choose_project(projects: list[dict]) -> str | None:
+    if not projects:
+        print("No projects found.")
+        return None
 
-def main():
-    api = QonicApi()
-    api.authorize()
-    projects = api.list_projects()
     print("your projects:")
-    for project in projects:
-        print(f"{project['id']} - {project['name']}")
+    for p in projects:
+        print(f"{p['id']} - {p['name']}")
+    print()
 
-    print()
-    project_id = input("Enter a project id: ")
-    print()
+    valid_ids = {str(p["id"]) for p in projects}
 
     while True:
-        print("Choose what to do next:")
-        print("1: Model Queries")
-        print("2: Codifications")
-        print("3: Materials")
-        print("4: Locations")
-        print("5: CustomProperties")
-        print("6: Delete Product")
-        print("7: Create model")
-        print("8: Export model")
-        print("9: Calculate quantities")
-        print("10: Exit")
-        choose = input()
+        pid = input("Enter a project id (or blank to exit): ").strip()
+        if not pid:
+            return None
+        if pid in valid_ids:
+            return pid
+        print("Invalid project id. Please pick one from the list.\n")
 
-        print()
-        if choose.startswith("1"):
-            handle_model_queries(api, project_id)
-        elif choose.startswith("2"):
-            handle_codifications(api, project_id)
-        elif choose.startswith("3"):
-            handle_materials(api, project_id)
-        elif choose.startswith("4"):
-            handle_locations(api, project_id)
-        elif choose.startswith("5"):
-            handle_custom_properties(api, project_id)
-        elif choose.startswith("6"):
-            handle_delete_product(api, project_id)
-        elif choose.startswith("7"):
-            handle_create_model(api, project_id)
-        elif choose.startswith("8"):
-            handle_export_model(api, project_id)
-        elif choose.startswith("9"):
-            handle_calculate_quantities(api, project_id)
-        elif choose.startswith("10"):
-            break
-        else:
-            print("Please choose an option from 1-10")
+def _choose_action(actions: dict[str, tuple[str, Callable[[], None]]]) -> str:
+    print("Choose what to do next:")
+    for key, (label, _) in actions.items():
+        print(f"{key}: {label}")
+
+    return input(f"Enter choice ({', '.join(actions.keys())}): ").strip()
+
+def main() -> None:
+    api = QonicApi()
+    api.authorize()
+
+    project_id = _choose_project(api.list_projects())
+    if not project_id:
+        return
+
+    actions: dict[str, tuple[str, Callable[[], None]]] = {
+        "1": ("Model Queries", lambda: handle_model_queries(api, project_id)),
+        "2": ("Codifications", lambda: handle_codifications(api, project_id)),
+        "3": ("Materials", lambda: handle_materials(api, project_id)),
+        "4": ("Locations", lambda: handle_locations(api, project_id)),
+        "5": ("CustomProperties", lambda: handle_custom_properties(api, project_id)),
+        "6": ("Delete Product", lambda: handle_delete_product(api, project_id)),
+        "7": ("Create model", lambda: handle_create_model(api, project_id)),
+        "8": ("Export model", lambda: handle_export_model(api, project_id)),
+        "9": ("Calculate quantities", lambda: handle_calculate_quantities(api, project_id)),
+        "10": ("Exit", lambda: exit()),
+    }
+
+    try:
+        while True:
+            print()
+            choice = _choose_action(actions)
+            if choice not in actions:
+                print("Please choose a valid option.\n")
+                continue
+
+            _, action = actions[choice]
+            action()
+
+    except (KeyboardInterrupt, EOFError):
+        print("\nExiting...")
 
 
 if __name__ == "__main__":
