@@ -1,3 +1,4 @@
+from pathlib import Path
 from random import randint
 import re
 import time
@@ -511,7 +512,20 @@ def handle_create_model(api: QonicApi, project_id: str):
     print(f"Final import status: {operation['status']}")
 
 
-def handle_export_model(api: QonicApi, project_id: str):
+def _resolve_output_path(user_input: str, model_id: str) -> Path:
+    p = Path(user_input).expanduser()
+
+    as_str = str(user_input)
+    if as_str.endswith(("/", "\\")) or (p.exists() and p.is_dir()):
+        p = p / f"{model_id}.ifc"
+
+    if p.suffix == "":
+        p = p / f"{model_id}.ifc"
+
+    return p
+
+
+def handle_export_model(api: "QonicApi", project_id: str) -> None:
     models = api.list_models(project_id)
     if not models:
         print("No models found")
@@ -522,33 +536,51 @@ def handle_export_model(api: QonicApi, project_id: str):
         print(f"{model['id']} - {model['name']}")
     print()
 
-    model_id = input("Enter a model id: ")
-    print("Starting IFC export")
+    model_id = input("Enter a model id: ").strip()
+    if not model_id:
+        print("No model id provided")
+        return
 
+    output_raw = input(
+        "Enter a directory or path to save the IFC file (e.g. ./exports/ or ./exports/export.ifc): "
+    ).strip()
+    if not output_raw:
+        print("No output path provided")
+        return
+
+    output_path = _resolve_output_path(output_raw, model_id)
+
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Could not create directory {output_path.parent}: {e}")
+        return
+
+    if output_path.exists():
+        print(f"Output file {output_path} already exists, please remove it first")
+        return
+
+    print("Starting IFC export")
     operation = api.start_export_ifc(project_id, model_id)
     operation_id = operation["id"]
     print(f"Export operation id {operation_id}")
 
     final_operation = wait_for_operation(api, operation_id)
-    if final_operation["status"] != "Ready":
+    if final_operation.get("status") != "Ready":
         print("Export operation did not complete successfully")
         return
 
     result_url = api.get_export_ifc_result_url(project_id, model_id, operation_id)
-    output_path = input("Enter a path on disk to save the IFC file (e.g. export.ifc): ").strip()
-    if not output_path:
-        print("No output path provided")
-        return
 
-    print("Downloading IFC file")
+    print(f"Downloading IFC file to {output_path}")
     resp = requests.get(result_url, stream=True)
     resp.raise_for_status()
+
     with open(output_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
     print(f"IFC file saved to {output_path}")
-
 
 def handle_calculate_quantities(api: QonicApi, project_id: str):
     models = api.list_models(project_id)
