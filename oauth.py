@@ -120,10 +120,10 @@ def login() -> dict:
         timeout=30,
     ).json()
 
-    if 'access_token' not in response:
-        raise SystemExit(f"Token exchange failed: {response}")
+    if 'error' in result:
+        raise SystemExit(f"Token exchange failed: {result['errorDetails']}")
 
-    return response
+    return result
 
 if __name__ == "__main__":
     print(login())
