@@ -1,515 +1,683 @@
+from pathlib import Path
 from random import randint
-import requests
 import re
-import uuid
-from oauth import login
+import time
+import os
+import json
+
+import requests
+from QonicApi import QonicApi
 import printMethods
 import os
 
-apiUrl = os.getenv("QONIC_API_URL", "https://api.qonic.com/v1/")
-accessToken = os.getenv("QONIC_ACCESS_TOKEN")
-if not accessToken:
-    accessToken = login()['access_token']
 
-class ModificationInputError:
-    def __init__(self, guid, field, error, description):
-        self.guid = guid
-        self.field = field
-        self.error = error
-        self.description = description
-    def __str__(self):
-        return f"{self.guid}: {self.field}: {self.error}: {self.description}"
-    def __repr__(self):
-        return f"{self.guid}: {self.field}: {self.error}: {self.description}"
-
-def handleErrorResponse(response: requests.Response):
-    try:
-        print(response.json())
-    except Exception as err:
-        print(f"Error occurred while processing error response: {err}")
-
-def sendGetRequest(path, params=None):
-    try:
-        response = requests.get(f"{apiUrl}{path}", params=params,  headers={"Authorization": f"Bearer {accessToken}"})
-        response.raise_for_status()
-    except requests.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-        handleErrorResponse(response)
-        exit()
-    except Exception as err:
-        print(f"Other error occurred: {err}")
-        exit()
-    return response.json()
-
-def sendPostRequest(path, data=None, json=None, params=None, sessionId=str):
-    try:
-        response = requests.post(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
-        response.raise_for_status()
-        return response
-    except requests.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-        handleErrorResponse(response)
-        exit()
-    except Exception as err:
-        print(f"Other error occurred: {err}")
-        exit()
-
-def sendDeleteRequest(path, data=None, json=None, params=None, sessionId=str):
-    try:
-        response = requests.delete(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
-        response.raise_for_status()
-        return response
-    except requests.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-        handleErrorResponse(response)
-        exit()
-    except Exception as err:
-        print(f"Other error occurred: {err}")
-        exit()
-
-def sendPutRequest(path, data=None, json=None, params=None, sessionId=str):
-    try:
-        response = requests.put(f"{apiUrl}{path}", data=data, json=json, params=params,  headers={"Authorization": f"Bearer {accessToken}", "X-Client-Session-Id": sessionId})
-        response.raise_for_status()
-        return response
-    except requests.HTTPError as http_err:
-        print(f"HTTP error occurred: {http_err}")
-        handleErrorResponse(response)
-        exit()
-    except Exception as err:
-        print(f"Other error occurred: {err}")
-        exit()
+def wait_for_operation(api: QonicApi, operation_id: str):
+    while True:
+        operation = api.get_operation(operation_id)
+        status = operation["status"]
+        print(f"Operation {operation_id} status: {status}")
+        if status in ("Ready", "Failed"):
+            return operation
+        time.sleep(2)
 
 
-
-
-
-projectsJson = sendGetRequest("projects")
-print("your projects:")
-for project in projectsJson["projects"]:
-    print(f"{project['id']} - {project['name']}")
-
-print()
-projectId = input("Enter a project id: ")
-print()
-    
-
-
-print("Choose what to do next:")
-print("1: Model Queries")
-print("2: Codifcations")
-print("3: Materials")
-print("4: Locations")
-print("5: CustomProperties")
-print("6: Delete Product")
-choose = input()
-
-print()
-if choose.startswith("1"):
-    modelsJson = sendGetRequest(f"projects/{projectId}/models")
+def handle_model_queries(api: QonicApi, project_id: str):
+    models = api.list_models(project_id)
     print("your models:")
-    for model in modelsJson["models"]:
+    for model in models:
         print(f"{model['id']} - {model['name']}")
     print()
 
-    modelId = input("Enter a model id: ")
+    model_id = input("Enter a model id: ")
     print()
 
-    availableDataJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products/available-data")
+    available_fields = api.get_available_product_fields(project_id, model_id)
     print("fields:")
-    for field in availableDataJson["fields"]:
+    for field in available_fields:
         print(f"{field}")
     print()
 
-
-    print("Quering the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
+    print("Querying the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
     print()
-    # Query the Guid, Class, Name and FireRating fields
-    # Filter on class Beam
-    params = { "Fields": ["Guid", "Class", "Name", "FireRating"],
-    "Filters" : {"Class": "Beam"}}
-    sessionId = str(uuid.uuid4())
-    properties = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId)
+    properties = api.query_products(
+        project_id,
+        model_id,
+        fields=["Guid", "Class", "Name", "FireRating"],
+        filters={"Class": "Beam"},
+    )
 
     print()
-    propertiesJson = properties.json()
-    for row in propertiesJson["result"]:
+    for row in properties:
         print(f"{row}")
 
     print()
-
     print("Starting modification session")
+    if len(properties) > 0:
+        current_fire_rating = properties[0]["FireRating"]
 
-
-    if len(propertiesJson["result"]) > 0:
-        currentFireRating = propertiesJson["result"][0]["FireRating"]
- 
-        if currentFireRating["PropertySet"] == None and currentFireRating["Value"] == None:
-
-            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+        if current_fire_rating["PropertySet"] is None and current_fire_rating["Value"] is None:
+            api.start_session(project_id, model_id)
             try:
-                fireRating = f"F{randint(1, 200)}"
+                fire_rating = f"F{randint(1, 200)}"
 
-                print(f"Adding FireRating to first row  {fireRating}")
+                print(f"Adding FireRating to first row  {fire_rating}")
                 changes = {
                     "add": {
                         "FireRating": {
-                            propertiesJson["result"][0]["Guid"]: {
+                            properties[0]["Guid"]: {
                                 "PropertySet": "Pset_BeamCommon",
-                                "Value": fireRating
+                                "Value": fire_rating,
                             }
                         }
                     }
                 }
-                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
+                errors = api.modify_products(project_id, model_id, changes)
                 if len(errors) > 0:
                     print(str(errors))
-                    exit()
+                    return
             finally:
                 print("Closing modification session")
-                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+                api.end_session(project_id, model_id)
             print("Modification is done")
             print()
-            print("Quering data again")
+            print("Querying data again")
 
-            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+            properties = api.query_products(
+                project_id,
+                model_id,
+                fields=["Guid", "Class", "Name", "FireRating"],
+                filters={"Class": "Beam"},
+            )
 
             print("Showing only the first row:")
-            print(propertiesJson["result"][0])
+            print(properties[0])
 
             print()
             print("Starting modification session to reset value")
-            sessionId = str(uuid.uuid4())
-            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+            api.start_session(project_id, model_id)
 
             try:
-                fireRating = f"F{randint(1, 200)}"
+                fire_rating = f"F{randint(1, 200)}"
                 print(f"Clearing FireRating of first row")
                 changes = {
                     "update": {
                         "FireRating": {
-                            propertiesJson["result"][0]["Guid"]: None
+                            properties[0]["Guid"]: None
                         }
                     }
                 }
-                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
+                errors = api.modify_products(project_id, model_id, changes)
                 if len(errors) > 0:
                     print(errors)
-                    exit()
+                    return
             finally:
                 print("Closing modification session")
-                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+                api.end_session(project_id, model_id)
             print("Modification is done")
             print()
             print("Quering data again")
 
-            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
+            properties = api.query_products(
+                project_id,
+                model_id,
+                fields=["Guid", "Class", "Name", "FireRating"],
+                filters={"Class": "Beam"},
+            )
 
             print("Showing only the first row:")
-            print(propertiesJson["result"][0])
+            print(properties[0])
 
             print()
             print("Starting modification to delete propety")
-            sessionId = str(uuid.uuid4())
-            sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+            api.start_session(project_id, model_id)
 
-    
             try:
-                fireRating = f"F{randint(1, 200)}"
+                fire_rating = f"F{randint(1, 200)}"
                 print(f"Clearing FireRating of first row")
                 changes = {
                     "delete": {
                         "FireRating": {
-                            propertiesJson["result"][0]["Guid"]: None
+                            properties[0]["Guid"]: None
                         }
                     }
                 }
-                productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-                errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
+                errors = api.modify_products(project_id, model_id, changes)
                 if len(errors) > 0:
                     print(errors)
-                    exit()
+                    return
             finally:
                 print("Closing modification session")
-                sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+                api.end_session(project_id, model_id)
             print("Modification is done")
             print()
             print("Quering data again")
 
-            propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
-            print("Showing only the first row:")
-            print(propertiesJson["result"][0])
+            properties = api.query_products(
+                project_id,
+                model_id,
+                fields=["Guid", "Class", "Name", "FireRating"],
+                filters={"Class": "Beam"},
+            )
+            if len(properties) > 0:
+                print("Showing only the first row:")
+                print(properties[0])
         else:
             print("Beam already has a fire rating a change modification needed")
     else:
         print("No beams to add a fire rating to")
-elif choose.startswith("2"):
+
+
+def handle_codifications(api: QonicApi, project_id: str):
     print("Showing first codification library")
-    codes = sendGetRequest(f"projects/{projectId}/Codifications")
+    libraries = api.list_codification_libraries(project_id)
+    if not libraries:
+        print("No codification libraries found")
+        return
 
-    printMethods.printCodificationLibrary(codes["codificationLibraries"][0])
+    printMethods.printCodificationLibrary(libraries[0])
 
-    #Add new codification library
     print("Adding new TestCodificationLibrary")
     data = {
-        "name" : "CodificationTestLibrary",
-        "description": "codification library for testing"
+        "name": "CodificationTestLibrary",
+        "description": "codification library for testing",
     }
-    
-    sessionId = str(uuid.uuid4())
-    newLibrary = (sendPostRequest(f"projects/{projectId}/Codifications", json= data, sessionId=sessionId)).json()
 
-    libraryId = newLibrary["guid"]
+    new_library = api.create_codification_library(project_id, data)
 
-    #Add Codification to library
+    library_id = new_library["guid"]
 
-    newCodeToAdd = {
-        "name" : "NewRootCode",
-        "identification" : "0",
-        "description" :"NewCodeForTesting",
-        "parentId": None
+    new_code_to_add = {
+        "name": "NewRootCode",
+        "identification": "0",
+        "description": "NewCodeForTesting",
+        "parentId": None,
     }
     print("Adding new root code the library")
-    newCode = (sendPostRequest(f"projects/{projectId}/codifications/{libraryId}/codification", json = newCodeToAdd, sessionId=sessionId)).json()
+    new_code = api.create_classification_code(
+        project_id,
+        library_id,
+        new_code_to_add,
+    )
 
-    #Update Codification
     print("updating the name of the new code from NewRootcode to  updatedName")
-    updatedCode = {
-    "name": "updatedName"
+    updated_code = {
+        "name": "updatedName"
     }
-    sendPutRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{newCode['guid']}", json = updatedCode, sessionId=sessionId)
-    #View specific library
+    api.update_classification_code(
+        project_id,
+        library_id,
+        new_code["guid"],
+        updated_code,
+    )
+
     print("Show new library")
-    newlyAddedLibrary = sendGetRequest(f"projects/{projectId}/codifications/{libraryId}")
-    printMethods.printCodificationLibrary(newlyAddedLibrary)
+    newly_added_library = api.get_codification_library(project_id, library_id)
+    printMethods.printCodificationLibrary(newly_added_library)
 
-    #Delete Codification
     print("Delete newly added code")
-    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}/codification/{newCode['guid']}", json = updatedCode, sessionId=sessionId)
-    #Delete new CodificationLibrary
+    api.delete_classification_code(
+        project_id,
+        library_id,
+        new_code["guid"],
+    )
     print("Delete new library")
-    sendDeleteRequest(f"projects/{projectId}/codifications/{libraryId}", sessionId=sessionId)
+    api.delete_codification_library(
+        project_id,
+        library_id,
+    )
 
-elif choose.startswith("3"):
+
+def handle_materials(api: QonicApi, project_id: str):
     print("Showing first material library")
-    materials = sendGetRequest(f"projects/{projectId}/material-libraries")
+    materials = api.get_material_overview(project_id)
+
+    if not materials.get("materialProperties"):
+        print("No material libraries found")
+        return
 
     printMethods.printMaterials(materials["materialProperties"][0])
 
-    sessionId = str(uuid.uuid4())
-    #Create new material library
+    new_library = api.create_material_library(
+        project_id,
+        {"Name": "TestMaterial"},
+    )
 
-    newLibrary = sendPostRequest(f"projects/{projectId}/material-libraries",json = {"Name" :"TestMaterial"}, sessionId=sessionId).json()
-
-    libraryId = newLibrary["guid"]
-    #Add material
-    newMaterial = {
-        "name" : "Concrete",
+    library_id = new_library["guid"]
+    new_material = {
+        "name": "Concrete",
         "description": "test",
-        "color": "#785B3DFF"
-
+        "color": "#785B3DFF",
     }
     print("Adding new material to the library")
-    newMaterial = (sendPostRequest(f"projects/{projectId}/material-libraries/{libraryId}/materials", json = newMaterial, sessionId=sessionId)).json()
+    new_material = api.create_material(
+        project_id,
+        library_id,
+        new_material,
+    )
 
-    #Update material
-    updatedMaterial =  {
+    updated_material = {
         "name": "Concrete",
         "description": "concrete test material",
-        "color": "#49C73EFF"
+        "color": "#49C73EFF",
     }
-    newMaterialId = newMaterial["guid"]
-    sendPutRequest(f"projects/{projectId}/material-libraries/{libraryId}/materials/{newMaterialId}", json=updatedMaterial, sessionId= sessionId)
-    materials = sendGetRequest(f"projects/{projectId}/material-libraries")
+    new_material_id = new_material["guid"]
+    api.update_material(
+        project_id,
+        new_material_id,
+        updated_material,
+    )
+    materials = api.get_material_overview(project_id)
 
-    printMethods.printMaterials( [lib for lib in materials["materialProperties"] if lib["guid"] == libraryId][0])
-    #Delete material
+    printMethods.printMaterials(
+        [lib for lib in materials["materialProperties"] if lib["guid"] == library_id][0]
+    )
+
     print("Delete material again")
-    sendDeleteRequest(f"projects/{projectId}/material-libraries/{libraryId}/materials/{newMaterialId}", sessionId=sessionId)
+    api.delete_material(
+        project_id,
+        library_id,
+        new_material_id,
+    )
 
-elif choose.startswith("4"):
+
+def handle_locations(api: QonicApi, project_id: str):
     print("Get all locations")
-    locations = sendGetRequest(f"projects/{projectId}/locations")
-    for location in locations["locationViews"]:
+    locations = api.get_locations(project_id)
+    for location in locations:
         printMethods.printLocations(location)
         print("-----------------------------------------")
 
     print("Add new site location")
 
-    newSite = {
-        "name" : "NewLocation",
-        "type" : "Site",
-        "parentGuid" : None
+    new_site = {
+        "name": "NewLocation",
+        "type": "Site",
+        "parentGuid": None,
     }
 
-    sessionId = str(uuid.uuid4())
-    site = (sendPostRequest(f"projects/{projectId}/locations", json=newSite, sessionId= sessionId)).json()
+    site = api.create_location(
+        project_id,
+        new_site,
+    )
 
-    guidSite = [prop for prop in  site["properties"] if prop["name"] == "Guid"][0]["value"]
-    
+    guid_site = [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"]
+
     print("Add new building")
-    newBuilding = {
-        "name" :"NewBuilding",
-        "type" : "Building",
-        "parentGuid" : guidSite
-
+    new_building = {
+        "name": "NewBuilding",
+        "type": "Building",
+        "parentGuid": guid_site,
     }
 
-    building = sendPostRequest(f"projects/{projectId}/locations", json= newBuilding, sessionId= sessionId)
+    api.create_location(
+        project_id,
+        new_building,
+    )
 
     print("Update site name to newSite")
-    updatedSite ={
-        "name":"newSite"
+    updated_site = {
+        "name": "newSite"
     }
-    sendPutRequest(f"projects/{projectId}/locations/{guidSite}", json =updatedSite , sessionId=sessionId)
+    api.update_location(
+        project_id,
+        guid_site,
+        updated_site,
+    )
 
     print("Show added locations")
-    locations = sendGetRequest(f"projects/{projectId}/locations")
+    locations = api.get_locations(project_id)
 
-    for location in locations["locationViews"]:
-        if [prop for prop in  site["properties"] if prop["name"] == "Guid"][0]["value"] == guidSite:
+    for location in locations:
+        if [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"] == guid_site:
             printMethods.printLocations(location)
 
     print("Delete added locations")
-    sendDeleteRequest(f"projects/{projectId}/locations/{guidSite}", sessionId=sessionId)
+    api.delete_location(
+        project_id,
+        guid_site,
+    )
 
-elif choose.startswith("5"):
+
+def handle_custom_properties(api: QonicApi, project_id: str):
     print("Showing all custom properties")
-    
-    customProperties = sendGetRequest(f"projects/{projectId}/customProperties")
-    printMethods.printCustomProperties(customProperties)
+
+    custom_properties = api.get_custom_properties(project_id)
+    printMethods.printCustomProperties(custom_properties)
 
     print("Create new propertyset: TestSet")
 
-    propertySetToAdd = {
+    property_set_to_add = {
         "Name": "TestSet",
-        "EntityTypes" : [  {"Value": "IfcWall"}, {"Value": "IfcBeam"}, {"Value": "IfcSlab"}]
+        "EntityTypes": [{"Value": "IfcWall"}, {"Value": "IfcBeam"}, {"Value": "IfcSlab"}],
     }
-    sessionId = str(uuid.uuid4())
-    addedSet =  (sendPostRequest(f"projects/{projectId}/customProperties/property-sets", json= propertySetToAdd, sessionId=sessionId)).json()
+    added_set = api.create_property_set(
+        project_id,
+        property_set_to_add,
+    )
 
     print("Add property to set: TestProperty")
 
-    propertyToAdd = {
+    property_to_add = {
         "Name": "TestProperty",
-        "DataType": "String"
+        "DataType": "String",
     }
 
-    addedProperty = sendPostRequest(f"projects/{projectId}/customProperties/property-sets/{addedSet['id']}/property",json=propertyToAdd, sessionId=sessionId)
+    api.add_property_definition(
+        project_id,
+        added_set["id"],
+        property_to_add,
+    )
 
     print("Choose model to add this property to")
 
-    modelsJson = sendGetRequest(f"projects/{projectId}/models")
+    models = api.list_models(project_id)
     print("your models:")
-    for model in modelsJson["models"]:
+    for model in models:
         print(f"{model['id']} - {model['name']}")
     print()
 
-    modelId = input("Enter a model id: ")
+    model_id = input("Enter a model id: ")
     print()
-
 
     print("Quering the Guid, Class, Name fields, filtered on Class Wall...")
     print()
-    # Query the Guid, Class, Name  fields
-    fieldsStr = "Guid Class Name"
-    params = list(map(lambda field: ("fields", field), re.split(r'[;,\s]+', fieldsStr)))
-    # Filter on class wall
-    params.append(("filters[Class]", "Wall"))
-    propertiesJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products", params)
+    fields_str = "Guid Class Name"
+    properties = api.query_products(
+        project_id,
+        model_id,
+        fields=re.split(r"[;,\s]+", fields_str.strip()),
+        filters={"Class": "Wall"},
+    )
 
     print()
-    for row in propertiesJson["result"]:
+    for row in properties:
         print(f"{row}")
 
     print("Adding test property to first wall")
     print("  Starting modification session")
-    sessionId = str(uuid.uuid4())
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+    if not properties:
+        print("No walls found")
+        return
+
+    api.start_session(project_id, model_id)
     try:
         changes = {
             "add": {
                 "TestProperty": {
-                    propertiesJson["result"][0]["Guid"]: {
+                    properties[0]["Guid"]: {
                         "PropertySet": "TestSet",
-                        "Value": "testValue"
+                        "Value": "testValue",
                     }
                 }
             }
         }
-        productsResponse = sendPostRequest(f"projects/{projectId}/models/{modelId}/products", json=changes, sessionId=sessionId)
-        errors =  list(map(lambda json: ModificationInputError(**json), productsResponse.json()["errors"]))
+        errors = api.modify_products(project_id, model_id, changes)
         if len(errors) > 0:
             print(str(errors))
-            exit()
-
+            return
     finally:
         print("Closing modification session")
-        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+        api.end_session(project_id, model_id)
 
-elif choose.startswith("6"):
 
-    modelsJson = sendGetRequest(f"projects/{projectId}/models")
+def handle_delete_product(api: QonicApi, project_id: str):
+    models = api.list_models(project_id)
     print("your models:")
-    for model in modelsJson["models"]:
+    for model in models:
         print(f"{model['id']} - {model['name']}")
     print()
 
-    modelId = input("Enter a model id: ")
+    model_id = input("Enter a model id: ")
     print()
 
-    availableDataJson = sendGetRequest(f"projects/{projectId}/models/{modelId}/products/available-data")
+    available_fields = api.get_available_product_fields(project_id, model_id)
     print("fields:")
-    for field in availableDataJson["fields"]:
+    for field in available_fields:
         print(f"{field}")
     print()
 
-
     print("Quering the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
     print()
-    # Query the Guid, Class, Name and FireRating fields
-    # Filter on class Beam
-    params = { "Fields": ["Guid", "Class", "Name"],
-    "Filters" : {"Class": "Wall"}}
-    sessionId = str(uuid.uuid4())
+    params = {"Fields": ["Guid", "Class", "Name"], "Filters": {"Class": "Wall"}}
 
-    properties = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId)
+    properties = api.query_products(
+        project_id,
+        model_id,
+        fields=params["Fields"],
+        filters=params["Filters"],
+    )
 
-    propertiesJson = properties.json()
-    initialAmountOfWalls = len(propertiesJson["result"])
-    print(f"Found{initialAmountOfWalls} walls")
+    initial_amount_of_walls = len(properties)
+    print(f"Found{initial_amount_of_walls} walls")
 
     print("Deleting the first wall")
 
-    guid = propertiesJson["result"][0]["Guid"]
-    sendPostRequest(f"projects/{projectId}/models/{modelId}/start-session", sessionId=sessionId)
+    if not properties:
+        print("No walls found")
+        return
+
+    guid = properties[0]["Guid"]
+    api.start_session(project_id, model_id)
 
     try:
-        sendDeleteRequest(f"projects/{projectId}/models/{modelId}/products/{guid}", sessionId=sessionId)
-    
+        api.delete_product(project_id, model_id, guid)
     finally:
         print("Closing modification session")
-        sendPostRequest(f"projects/{projectId}/models/{modelId}/end-session", sessionId=sessionId)
+        api.end_session(project_id, model_id)
     print("Modification is done")
     print()
     print("Quering data again")
 
-    propertiesJson = sendPostRequest(f"projects/{projectId}/models/{modelId}/products/query", json= params, sessionId=sessionId).json()
-    amountAfterDelete = len(propertiesJson["result"])
-    print(f"Found {amountAfterDelete }walls")
-
-   
-  
-
-
-    
-
-
-    
+    properties_after = api.query_products(
+        project_id,
+        model_id,
+        fields=params["Fields"],
+        filters=params["Filters"],
+    )
+    amount_after_delete = len(properties_after)
+    print(f"Found {amount_after_delete }walls")
 
 
+def handle_create_model(api: QonicApi, project_id: str):
+    print("Requesting upload URL")
+    upload_url = api.get_upload_url()
+    print("Upload URL received")
+    local_path = input("Enter the path to the local model file to upload: ").strip()
+    while not local_path or not os.path.isfile(local_path):
+        if not local_path:
+            print("No file path provided")
+        if not os.path.isfile(local_path):
+            print("File does not exist")
+
+        local_path = input("Enter the path to the local model file to upload: ").strip()
+
+    upload_file_name = os.path.basename(local_path)
+    print(f"Uploading {upload_file_name} to storage")
+    with open(local_path, "rb") as f:
+        resp = requests.put(upload_url, data=f)
+        resp.raise_for_status()
+    print("Upload finished")
+
+    model_name = upload_file_name if '.' not in upload_file_name  else upload_file_name.split('.')[0]
+    result = api.create_model(
+        project_id,
+        model_name=model_name,
+        upload_url=upload_url,
+        upload_file_name=upload_file_name,
+        discipline="Other",
+    )
+
+    print(f"Created model with id {result['modelId']}")
+    print(f"Import operation id {result['id']} with status {result['status']}")
+    operation = wait_for_operation(api, result["id"])
+    print(f"Final import status: {operation['status']}")
 
 
-    
+def _resolve_output_path(user_input: str, model_id: str) -> Path:
+    p = Path(user_input).expanduser()
+
+    as_str = str(user_input)
+    if as_str.endswith(("/", "\\")) or (p.exists() and p.is_dir()):
+        p = p / f"{model_id}.ifc"
+
+    if p.suffix == "":
+        p = p / f"{model_id}.ifc"
+
+    return p
+
+
+def handle_export_model(api: "QonicApi", project_id: str) -> None:
+    models = api.list_models(project_id)
+    if not models:
+        print("No models found")
+        return
+
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
+
+    model_id = input("Enter a model id: ").strip()
+    if not model_id:
+        print("No model id provided")
+        return
+
+    output_raw = input(
+        "Enter a directory or path to save the IFC file (e.g. ./exports/ or ./exports/export.ifc): "
+    ).strip()
+    if not output_raw:
+        print("No output path provided")
+        return
+
+    output_path = _resolve_output_path(output_raw, model_id)
+
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"Could not create directory {output_path.parent}: {e}")
+        return
+
+    if output_path.exists():
+        print(f"Output file {output_path} already exists, please remove it first")
+        return
+
+    print("Starting IFC export")
+    operation = api.start_export_ifc(project_id, model_id)
+    operation_id = operation["id"]
+    print(f"Export operation id {operation_id}")
+
+    final_operation = wait_for_operation(api, operation_id)
+    if final_operation.get("status") != "Ready":
+        print("Export operation did not complete successfully")
+        return
+
+    result_url = api.get_export_ifc_result_url(project_id, model_id, operation_id)
+
+    print(f"Downloading IFC file to {output_path}")
+    resp = requests.get(result_url, stream=True)
+    resp.raise_for_status()
+
+    with open(output_path, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    print(f"IFC file saved to {output_path}")
+
+def handle_calculate_quantities(api: QonicApi, project_id: str):
+    models = api.list_models(project_id)
+    if not models:
+        print("No models found")
+        return
+
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
+
+    model_id = input("Enter a model id: ")
+    print()
+
+    print("Starting quantity calculation of 'Length' and 'GrossArea' for all products with class 'Wall'")
+    operation = api.calculate_quantities(
+        project_id,
+        model_id,
+        calculators=["Length", "GrossArea"],
+        filters={"Class": "Wall"},
+    )
+    operation_id = operation["id"]
+    print(f"Quantities operation id {operation_id}")
+
+    final_operation = wait_for_operation(api, operation_id)
+    if final_operation["status"] != "Ready":
+        print("Quantities operation did not complete successfully")
+        return
+
+    result_url = api.get_quantities_result_url(project_id, model_id, operation_id)
+    print("Downloading quantities result")
+    resp = requests.get(result_url)
+    resp.raise_for_status()
+
+    try:
+        data = resp.json()
+    except ValueError:
+        print("Result is not valid JSON, raw response below:")
+        print(resp.text)
+        return
+
+    print("Quantities result:")
+    print(json.dumps(data, indent=2))
+
+
+def main():
+    api = QonicApi()
+    api.authorize()
+    projects = api.list_projects()
+    print("your projects:")
+    for project in projects:
+        print(f"{project['id']} - {project['name']}")
+
+    print()
+    project_id = input("Enter a project id: ")
+    print()
+
+    while True:
+        print("Choose what to do next:")
+        print("1: Model Queries")
+        print("2: Codifications")
+        print("3: Materials")
+        print("4: Locations")
+        print("5: CustomProperties")
+        print("6: Delete Product")
+        print("7: Create model")
+        print("8: Export model")
+        print("9: Calculate quantities")
+        print("10: Exit")
+        choose = input()
+
+        print()
+        if choose.startswith("1"):
+            handle_model_queries(api, project_id)
+        elif choose.startswith("2"):
+            handle_codifications(api, project_id)
+        elif choose.startswith("3"):
+            handle_materials(api, project_id)
+        elif choose.startswith("4"):
+            handle_locations(api, project_id)
+        elif choose.startswith("5"):
+            handle_custom_properties(api, project_id)
+        elif choose.startswith("6"):
+            handle_delete_product(api, project_id)
+        elif choose.startswith("7"):
+            handle_create_model(api, project_id)
+        elif choose.startswith("8"):
+            handle_export_model(api, project_id)
+        elif choose.startswith("9"):
+            handle_calculate_quantities(api, project_id)
+        elif choose.startswith("10"):
+            exit()
+        else:
+            print("Please choose an option from 1-10")
+
+
+if __name__ == "__main__":
+    main()

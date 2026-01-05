@@ -119,8 +119,11 @@ def login() -> dict:
         },
         timeout=30,
     )
-    resp.raise_for_status()
-    return resp.json()
+    result = resp.json()
+    if 'error' in result:
+        raise SystemExit(f"Token exchange failed: {result['errorDetails']}")
+
+    return result
 
 if __name__ == "__main__":
     print(login())
