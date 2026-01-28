@@ -230,6 +230,7 @@ def handle_materials(api: QonicApi, project_id: str):
     new_material_id = new_material["guid"]
     api.update_material(
         project_id,
+        library_id,
         new_material_id,
         updated_material,
     )
@@ -552,11 +553,12 @@ def handle_calculate_quantities(api: QonicApi, project_id: str):
     print()
 
     print("Starting quantity calculation of 'Length' and 'GrossArea' for all products with class 'Wall'")
+    filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
     operation = api.calculate_quantities(
         project_id,
         model_id,
         calculators=["Length", "GrossArea"],
-        filters={"Class": "Wall"},
+        filters=filters
     )
     operation_id = operation["id"]
     print(f"Quantities operation id {operation_id}")
