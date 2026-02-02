@@ -126,6 +126,7 @@ def login() -> dict:
     if 'access_token' not in result:
         raise SystemExit("No access token received from Qonic!")
 
+
     return result
 
 if __name__ == "__main__":

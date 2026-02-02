@@ -9,6 +9,7 @@ import requests
 from QonicApi import QonicApi
 import printMethods
 from QonicApiLib import ProductFilter
+import os
 
 
 def wait_for_operation(api: QonicApi, operation_id: str):
@@ -511,6 +512,7 @@ def handle_export_model(api: "QonicApi", project_id: str) -> None:
         print(f"Could not create directory {output_path.parent}: {e}")
         return
 
+
     if output_path.exists():
         print(f"Output file {output_path} already exists, please remove it first")
         return
@@ -536,7 +538,6 @@ def handle_export_model(api: "QonicApi", project_id: str) -> None:
             if chunk:
                 f.write(chunk)
     print(f"IFC file saved to {output_path}")
-
 
 def handle_calculate_quantities(api: QonicApi, project_id: str):
     models = api.list_models(project_id)
