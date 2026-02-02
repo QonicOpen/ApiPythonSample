@@ -1,13 +1,14 @@
 from pathlib import Path
 from random import randint
-import re
 import time
 import os
 import json
+from typing import Callable
 
 import requests
 from QonicApi import QonicApi
 import printMethods
+from QonicApiLib import ProductFilter
 import os
 
 
@@ -21,6 +22,23 @@ def wait_for_operation(api: QonicApi, operation_id: str):
         time.sleep(2)
 
 
+def run_product_modification(api: QonicApi, project_id: str, model_id: str, changes: dict) -> bool:
+    print("Starting modification session")
+    api.start_session(project_id, model_id)
+    try:
+        errors = api.modify_products(project_id, model_id, changes)
+        if errors:
+            print(errors)
+            return False
+    finally:
+        print("Closing modification session")
+        api.end_session(project_id, model_id)
+
+    print("Modification is done")
+    print()
+    return True
+
+
 def handle_model_queries(api: QonicApi, project_id: str):
     models = api.list_models(project_id)
     print("your models:")
@@ -32,139 +50,89 @@ def handle_model_queries(api: QonicApi, project_id: str):
     print()
 
     available_fields = api.get_available_product_fields(project_id, model_id)
-    print("fields:")
-    for field in available_fields:
-        print(f"{field}")
-    print()
+    print("fields: " + ', '.join(available_fields[:10]) + " ...")
 
     print("Querying the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
     print()
-    properties = api.query_products(
-        project_id,
-        model_id,
-        fields=["Guid", "Class", "Name", "FireRating"],
-        filters={"Class": "Beam"},
-    )
+
+    fields = ["Guid", "Class", "Name", "FireRating"]
+    filters: list[ProductFilter] = [{"property": "Class", "value": "Beam", "operator": "Contains"}]
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
 
     print()
     for row in properties:
         print(f"{row}")
 
     print()
-    print("Starting modification session")
-    if len(properties) > 0:
-        current_fire_rating = properties[0]["FireRating"]
-
-        if current_fire_rating["PropertySet"] is None and current_fire_rating["Value"] is None:
-            api.start_session(project_id, model_id)
-            try:
-                fire_rating = f"F{randint(1, 200)}"
-
-                print(f"Adding FireRating to first row  {fire_rating}")
-                changes = {
-                    "add": {
-                        "FireRating": {
-                            properties[0]["Guid"]: {
-                                "PropertySet": "Pset_BeamCommon",
-                                "Value": fire_rating,
-                            }
-                        }
-                    }
-                }
-                errors = api.modify_products(project_id, model_id, changes)
-                if len(errors) > 0:
-                    print(str(errors))
-                    return
-            finally:
-                print("Closing modification session")
-                api.end_session(project_id, model_id)
-            print("Modification is done")
-            print()
-            print("Querying data again")
-
-            properties = api.query_products(
-                project_id,
-                model_id,
-                fields=["Guid", "Class", "Name", "FireRating"],
-                filters={"Class": "Beam"},
-            )
-
-            print("Showing only the first row:")
-            print(properties[0])
-
-            print()
-            print("Starting modification session to reset value")
-            api.start_session(project_id, model_id)
-
-            try:
-                fire_rating = f"F{randint(1, 200)}"
-                print(f"Clearing FireRating of first row")
-                changes = {
-                    "update": {
-                        "FireRating": {
-                            properties[0]["Guid"]: None
-                        }
-                    }
-                }
-                errors = api.modify_products(project_id, model_id, changes)
-                if len(errors) > 0:
-                    print(errors)
-                    return
-            finally:
-                print("Closing modification session")
-                api.end_session(project_id, model_id)
-            print("Modification is done")
-            print()
-            print("Quering data again")
-
-            properties = api.query_products(
-                project_id,
-                model_id,
-                fields=["Guid", "Class", "Name", "FireRating"],
-                filters={"Class": "Beam"},
-            )
-
-            print("Showing only the first row:")
-            print(properties[0])
-
-            print()
-            print("Starting modification to delete propety")
-            api.start_session(project_id, model_id)
-
-            try:
-                fire_rating = f"F{randint(1, 200)}"
-                print(f"Clearing FireRating of first row")
-                changes = {
-                    "delete": {
-                        "FireRating": {
-                            properties[0]["Guid"]: None
-                        }
-                    }
-                }
-                errors = api.modify_products(project_id, model_id, changes)
-                if len(errors) > 0:
-                    print(errors)
-                    return
-            finally:
-                print("Closing modification session")
-                api.end_session(project_id, model_id)
-            print("Modification is done")
-            print()
-            print("Quering data again")
-
-            properties = api.query_products(
-                project_id,
-                model_id,
-                fields=["Guid", "Class", "Name", "FireRating"],
-                filters={"Class": "Beam"},
-            )
-            if len(properties) > 0:
-                print("Showing only the first row:")
-                print(properties[0])
-        else:
-            print("Beam already has a fire rating a change modification needed")
-    else:
+    if not properties:
         print("No beams to add a fire rating to")
+        return
+
+    current_fire_rating = properties[0]["FireRating"]
+    if current_fire_rating["PropertySet"] is not None or current_fire_rating["Value"] is not None:
+        print("Beam already has a fire rating a change modification needed")
+        return
+
+    fire_rating = f"F{randint(1, 200)}"
+    print(f"Adding FireRating to first row  {fire_rating}")
+    add_changes = {
+        "add": {
+            "FireRating": {
+                properties[0]["Guid"]: {
+                    "PropertySet": "Pset_BeamCommon",
+                    "Value": fire_rating,
+                }
+            }
+        }
+    }
+
+    if not run_product_modification(api, project_id, model_id, add_changes):
+        return
+
+    print("Querying data again")
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
+
+    print("Showing only the first row:")
+    print(properties[0])
+
+    print()
+    print("Starting modification session to reset value")
+    update_changes = {
+        "update": {
+            "FireRating": {
+                properties[0]["Guid"]: None
+            }
+        }
+    }
+
+    if not run_product_modification(api, project_id, model_id, update_changes):
+        return
+
+    print("Querying data again")
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
+
+    print("Showing only the first row:")
+    print(properties[0])
+
+    print()
+    print("Starting modification to delete property")
+    delete_changes = {
+        "delete": {
+            "FireRating": {
+                properties[0]["Guid"]: None
+            }
+        }
+    }
+
+    if not run_product_modification(api, project_id, model_id, delete_changes):
+        return
+
+    print("Querying data again")
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
+
+    if properties:
+        print("Showing only the first row:")
+        print(properties[0])
 
 
 def handle_codifications(api: QonicApi, project_id: str):
@@ -263,6 +231,7 @@ def handle_materials(api: QonicApi, project_id: str):
     new_material_id = new_material["guid"]
     api.update_material(
         project_id,
+        library_id,
         new_material_id,
         updated_material,
     )
@@ -379,15 +348,12 @@ def handle_custom_properties(api: QonicApi, project_id: str):
     model_id = input("Enter a model id: ")
     print()
 
-    print("Quering the Guid, Class, Name fields, filtered on Class Wall...")
+    print("Querying the Guid, Class, Name fields, filtered on Class Wall...")
     print()
-    fields_str = "Guid Class Name"
-    properties = api.query_products(
-        project_id,
-        model_id,
-        fields=re.split(r"[;,\s]+", fields_str.strip()),
-        filters={"Class": "Wall"},
-    )
+
+    fields = ["Guid", "Class", "Name"]
+    filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
 
     print()
     for row in properties:
@@ -412,7 +378,7 @@ def handle_custom_properties(api: QonicApi, project_id: str):
             }
         }
         errors = api.modify_products(project_id, model_id, changes)
-        if len(errors) > 0:
+        if errors:
             print(str(errors))
             return
     finally:
@@ -431,24 +397,18 @@ def handle_delete_product(api: QonicApi, project_id: str):
     print()
 
     available_fields = api.get_available_product_fields(project_id, model_id)
-    print("fields:")
-    for field in available_fields:
-        print(f"{field}")
+    print("fields: " + ', '.join(available_fields[:10]) + " ...")
     print()
 
-    print("Quering the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
+    print("Querying the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
     print()
-    params = {"Fields": ["Guid", "Class", "Name"], "Filters": {"Class": "Wall"}}
 
-    properties = api.query_products(
-        project_id,
-        model_id,
-        fields=params["Fields"],
-        filters=params["Filters"],
-    )
+    fields = ["Guid", "Class", "Name"]
+    filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
+    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
 
     initial_amount_of_walls = len(properties)
-    print(f"Found{initial_amount_of_walls} walls")
+    print(f"Found {initial_amount_of_walls} walls")
 
     print("Deleting the first wall")
 
@@ -466,16 +426,11 @@ def handle_delete_product(api: QonicApi, project_id: str):
         api.end_session(project_id, model_id)
     print("Modification is done")
     print()
-    print("Quering data again")
+    print("Querying data again")
 
-    properties_after = api.query_products(
-        project_id,
-        model_id,
-        fields=params["Fields"],
-        filters=params["Filters"],
-    )
+    properties_after = api.query_products(project_id, model_id, fields=fields, filters=filters)
     amount_after_delete = len(properties_after)
-    print(f"Found {amount_after_delete }walls")
+    print(f"Found {amount_after_delete} walls")
 
 
 def handle_create_model(api: QonicApi, project_id: str):
@@ -498,7 +453,7 @@ def handle_create_model(api: QonicApi, project_id: str):
         resp.raise_for_status()
     print("Upload finished")
 
-    model_name = upload_file_name if '.' not in upload_file_name  else upload_file_name.split('.')[0]
+    model_name = upload_file_name if "." not in upload_file_name else upload_file_name.split(".")[0]
     result = api.create_model(
         project_id,
         model_name=model_name,
@@ -557,6 +512,7 @@ def handle_export_model(api: "QonicApi", project_id: str) -> None:
         print(f"Could not create directory {output_path.parent}: {e}")
         return
 
+
     if output_path.exists():
         print(f"Output file {output_path} already exists, please remove it first")
         return
@@ -598,11 +554,12 @@ def handle_calculate_quantities(api: QonicApi, project_id: str):
     print()
 
     print("Starting quantity calculation of 'Length' and 'GrossArea' for all products with class 'Wall'")
+    filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
     operation = api.calculate_quantities(
         project_id,
         model_id,
         calculators=["Length", "GrossArea"],
-        filters={"Class": "Wall"},
+        filters=filters
     )
     operation_id = operation["id"]
     print(f"Quantities operation id {operation_id}")
@@ -627,56 +584,67 @@ def handle_calculate_quantities(api: QonicApi, project_id: str):
     print("Quantities result:")
     print(json.dumps(data, indent=2))
 
+def _choose_project(projects: list[dict]) -> str | None:
+    if not projects:
+        print("No projects found.")
+        return None
 
-def main():
-    api = QonicApi()
-    api.authorize()
-    projects = api.list_projects()
     print("your projects:")
-    for project in projects:
-        print(f"{project['id']} - {project['name']}")
+    for p in projects:
+        print(f"{p['id']} - {p['name']}")
+    print()
 
-    print()
-    project_id = input("Enter a project id: ")
-    print()
+    valid_ids = {str(p["id"]) for p in projects}
 
     while True:
-        print("Choose what to do next:")
-        print("1: Model Queries")
-        print("2: Codifications")
-        print("3: Materials")
-        print("4: Locations")
-        print("5: CustomProperties")
-        print("6: Delete Product")
-        print("7: Create model")
-        print("8: Export model")
-        print("9: Calculate quantities")
-        print("10: Exit")
-        choose = input()
+        pid = input("Enter a project id (or blank to exit): ").strip()
+        if not pid:
+            return None
+        if pid in valid_ids:
+            return pid
+        print("Invalid project id. Please pick one from the list.\n")
 
-        print()
-        if choose.startswith("1"):
-            handle_model_queries(api, project_id)
-        elif choose.startswith("2"):
-            handle_codifications(api, project_id)
-        elif choose.startswith("3"):
-            handle_materials(api, project_id)
-        elif choose.startswith("4"):
-            handle_locations(api, project_id)
-        elif choose.startswith("5"):
-            handle_custom_properties(api, project_id)
-        elif choose.startswith("6"):
-            handle_delete_product(api, project_id)
-        elif choose.startswith("7"):
-            handle_create_model(api, project_id)
-        elif choose.startswith("8"):
-            handle_export_model(api, project_id)
-        elif choose.startswith("9"):
-            handle_calculate_quantities(api, project_id)
-        elif choose.startswith("10"):
-            exit()
-        else:
-            print("Please choose an option from 1-10")
+def _choose_action(actions: dict[str, tuple[str, Callable[[], None]]]) -> str:
+    print("Choose what to do next:")
+    for key, (label, _) in actions.items():
+        print(f"{key}: {label}")
+
+    return input(f"Enter choice ({', '.join(actions.keys())}): ").strip()
+
+def main() -> None:
+    api = QonicApi()
+    api.authorize()
+
+    project_id = _choose_project(api.list_projects())
+    if not project_id:
+        return
+
+    actions: dict[str, tuple[str, Callable[[], None]]] = {
+        "1": ("Model Queries", lambda: handle_model_queries(api, project_id)),
+        "2": ("Codifications", lambda: handle_codifications(api, project_id)),
+        "3": ("Materials", lambda: handle_materials(api, project_id)),
+        "4": ("Locations", lambda: handle_locations(api, project_id)),
+        "5": ("CustomProperties", lambda: handle_custom_properties(api, project_id)),
+        "6": ("Delete Product", lambda: handle_delete_product(api, project_id)),
+        "7": ("Create model", lambda: handle_create_model(api, project_id)),
+        "8": ("Export model", lambda: handle_export_model(api, project_id)),
+        "9": ("Calculate quantities", lambda: handle_calculate_quantities(api, project_id)),
+        "10": ("Exit", lambda: exit()),
+    }
+
+    try:
+        while True:
+            print()
+            choice = _choose_action(actions)
+            if choice not in actions:
+                print("Please choose a valid option.\n")
+                continue
+
+            _, action = actions[choice]
+            action()
+
+    except (KeyboardInterrupt, EOFError):
+        print("\nExiting...")
 
 
 if __name__ == "__main__":

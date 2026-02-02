@@ -2,43 +2,9 @@ import os
 import uuid
 from typing import Dict, List, Optional, Any, Iterable
 import requests
+
+from QonicApiLib import QonicApiError, ModificationInputError, ProductFilter
 from oauth import login
-
-
-class QonicApiError(Exception):
-    def __init__(self, response: requests.Response):
-        self.response = response
-        try:
-            self.data = response.json()
-        except ValueError:
-            self.data = None
-
-        message = f"{response.status_code} {response.reason}"
-        if isinstance(self.data, dict):
-            details = self.data.get("errorDetails") or self.data.get("detail")
-            code = self.data.get("error") or self.data.get("type")
-            parts = [message]
-            if code:
-                parts.append(str(code))
-            if details:
-                parts.append(str(details))
-            message = " - ".join(parts)
-
-        super().__init__(message)
-
-
-class ModificationInputError:
-    def __init__(self, guid: str, field: str, error: str, description: str):
-        self.guid = guid
-        self.field = field
-        self.error = error
-        self.description = description
-
-    def __str__(self) -> str:
-        return f"{self.guid}: {self.field}: {self.error}: {self.description}"
-
-    __repr__ = __str__
-
 
 class QonicApi:
     def __init__(self):
@@ -123,33 +89,33 @@ class QonicApi:
         return self.get(f"projects/{project_id}/models").get("models", [])
 
     def get_available_product_fields(self, project_id: str, model_id: str) -> List[str]:
-        return self.get(f"projects/{project_id}/models/{model_id}/products/available-data").get("fields", [])
+        return self.get(f"projects/{project_id}/models/{model_id}/products/properties/available-data").get("fields", [])
 
     def query_products(
             self,
             project_id: str,
             model_id: str,
             fields: Iterable[str],
-            filters: Dict[str, Any] | None = None
+            filters: Iterable[ProductFilter] | None = None
     ) -> Dict[str, Any]:
         body = {
             "fields": list(fields),
             "filters": filters or {},
         }
-        return self._post(f"projects/{project_id}/models/{model_id}/products/query", json=body).get("result", {})
+        return self._post(f"projects/{project_id}/models/{model_id}/products/properties/query", json=body).get("result", {})
 
     def calculate_quantities(self, project_id: str, model_id: str, calculators: Iterable[str],
-                             filters: Dict[str, Any] | None = None) -> Dict[str, Any]:
+                             filters: Iterable[ProductFilter] | None = None) -> Dict[str, Any]:
         body = {
             "calculators": list(calculators),
             "filters": filters or {},
         }
-        return self._post(f"projects/{project_id}/models/{model_id}/quantities", json=body)
+        return self._post(f"projects/{project_id}/models/{model_id}/products/quantities/query", json=body)
 
     def get_quantities_result_url(self, project_id: str, model_id: str, operation_id: str) -> str:
         resp = self._request(
             "GET",
-            f"projects/{project_id}/models/{model_id}/quantities/{operation_id}/result",
+            f"projects/{project_id}/models/{model_id}/products/quantities/{operation_id}/result",
             allow_redirects=False,
         )
         location = resp.headers.get("Location")
@@ -183,15 +149,15 @@ class QonicApi:
     def delete_product(self, project_id: str, model_id: str, guid: str) -> None:
         self._delete(f"projects/{project_id}/models/{model_id}/products/{guid}")
 
-    def publish_changes(self, project_id: str, title: Optional[str] = None, description: Optional[str] = None) -> None:
+    def publish_changes(self, project_id: str, model_id: str, title: Optional[str] = None, description: Optional[str] = None) -> None:
         body = {
             "title": title,
             "description": description,
         }
-        self._post(f"projects/{project_id}//publish", json=body)
+        self._post(f"projects/{project_id}/models/{model_id}/publish", json=body)
 
-    def discard_changes(self, project_id: str) -> None:
-        self._post(f"projects/{project_id}/discard")
+    def discard_changes(self, project_id: str, model_id: str) -> None:
+        self._post(f"projects/{project_id}/models/{model_id}/discard")
 
     def get_upload_url(self) -> str:
         data = self.get("upload-url")
@@ -302,8 +268,8 @@ class QonicApi:
         result = self._post(f"projects/{project_id}/material-libraries/{library_guid}/materials", json=material)
         return result if isinstance(result, dict) else {}
 
-    def update_material(self, project_id: str, material_guid: str, material: Dict[str, Any], ) -> None:
-        self._put(f"projects/{project_id}/material-libraries/{material_guid}/materials/{material_guid}", json=material)
+    def update_material(self, project_id: str, library_guid: str, material_guid: str, material: Dict[str, Any], ) -> None:
+        self._put(f"projects/{project_id}/material-libraries/{library_guid}/materials/{material_guid}", json=material)
 
     def delete_material(self, project_id: str, library_guid: str, material_guid: str) -> None:
         self._delete(f"projects/{project_id}/material-libraries/{library_guid}/materials/{material_guid}")
@@ -345,3 +311,4 @@ class QonicApi:
 
     def delete_type(self, project_id: str, library_guid: str, type_guid: str) -> None:
         self._delete(f"projects/{project_id}/types/{library_guid}/types/{type_guid}")
+
