@@ -537,7 +537,6 @@ def handle_export_model(api: "QonicApi", project_id: str) -> None:
                 f.write(chunk)
     print(f"IFC file saved to {output_path}")
 
-
 def handle_calculate_quantities(api: QonicApi, project_id: str):
     models = api.list_models(project_id)
     if not models:
