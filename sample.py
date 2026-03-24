@@ -399,37 +399,40 @@ def handle_delete_product(api: QonicApi, project_id: str):
     print("fields: " + ', '.join(available_fields[:10]) + " ...")
     print()
 
-    print("Querying the Guid, Class, Name and FireRating fields, filtered on Class Beam...")
-    print()
-
     fields = ["Guid", "Class", "Name"]
     filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
-    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
 
-    initial_amount_of_walls = len(properties)
-    print(f"Found {initial_amount_of_walls} walls")
-
-    print("Deleting the first wall")
-
-    if not properties:
-        print("No walls found")
-        return
-
-    guid = properties[0]["Guid"]
+    # Start a single session for all deletions — end-session signals that all
+    # modifications are complete and triggers server-side processing (unpack).
     api.start_session(project_id, model_id)
-
     try:
-        api.delete_product(project_id, model_id, guid)
+        while True:
+            print("Querying walls...")
+            properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
+            print(f"Found {len(properties)} walls")
+
+            if not properties:
+                print("No walls left to delete")
+                break
+
+            guid = properties[0]["Guid"]
+            print(f"Deleting wall {guid}")
+            api.delete_product(project_id, model_id, guid)
+            print("Deleted")
+
+            choice = input("Delete another? (y/n): ").strip().lower()
+            if choice != "y":
+                break
     finally:
         print("Closing modification session")
         api.end_session(project_id, model_id)
+
     print("Modification is done")
     print()
     print("Querying data again")
 
     properties_after = api.query_products(project_id, model_id, fields=fields, filters=filters)
-    amount_after_delete = len(properties_after)
-    print(f"Found {amount_after_delete} walls")
+    print(f"Found {len(properties_after)} walls")
 
 
 def handle_create_model(api: QonicApi, project_id: str):
