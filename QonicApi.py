@@ -170,15 +170,16 @@ class QonicApi:
             model_name: str,
             upload_url: str,
             upload_file_name: str,
-            discipline: str,
+            tags: Optional[List[str]] = None,
             default_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         body = {
             "modelName": model_name,
             "uploadUrl": upload_url,
             "uploadFileName": upload_file_name,
-            "discipline": discipline,
         }
+        if tags is not None:
+            body["tags"] = tags
         if default_role is not None:
             body["defaultRole"] = default_role
 
