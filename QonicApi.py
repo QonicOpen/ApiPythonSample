@@ -171,6 +171,8 @@ class QonicApi:
             upload_url: str,
             upload_file_name: str,
             tags: Optional[List[str]] = None,
+            # TODO: Remove discipline once Tags-based API (PR #17196) reaches production
+            discipline: Optional[str] = None,
             default_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         body = {
@@ -180,6 +182,8 @@ class QonicApi:
         }
         if tags is not None:
             body["tags"] = tags
+        if discipline is not None:
+            body["discipline"] = discipline
         if default_role is not None:
             body["defaultRole"] = default_role
 

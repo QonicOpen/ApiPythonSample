@@ -459,6 +459,8 @@ def handle_create_model(api: QonicApi, project_id: str):
         upload_url=upload_url,
         upload_file_name=upload_file_name,
         tags=["Architecture"],
+        # TODO: Remove discipline once Tags-based API (PR #17196) reaches production
+        discipline="Architecture",
     )
 
     print(f"Created model with id {result['modelId']}")
