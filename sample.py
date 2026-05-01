@@ -458,7 +458,7 @@ def handle_create_model(api: QonicApi, project_id: str):
         model_name=model_name,
         upload_url=upload_url,
         upload_file_name=upload_file_name,
-        discipline="Other",
+        tags=["Architecture"],
     )
 
     print(f"Created model with id {result['modelId']}")
