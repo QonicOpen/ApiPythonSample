@@ -141,7 +141,8 @@ def handle_codifications(api: QonicApi, project_id: str):
         print("No codification libraries found")
         return
 
-    printMethods.printCodificationLibrary(libraries[0])
+    first_library = api.get_codification_library(project_id, libraries[0]["guid"])
+    printMethods.printCodificationLibrary(first_library)
 
     print("Adding new TestCodificationLibrary")
     data = {
