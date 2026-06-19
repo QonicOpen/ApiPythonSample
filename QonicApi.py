@@ -313,3 +313,12 @@ class QonicApi:
     def delete_type(self, project_id: str, library_guid: str, type_guid: str) -> None:
         self._delete(f"projects/{project_id}/types/{library_guid}/types/{type_guid}")
 
+    def list_tokens(self) -> List[Dict[str, Any]]:
+        return self.get("auth/tokens")
+
+    def revoke_token(self, token_id: str) -> None:
+        self._delete(f"auth/tokens/{token_id}")
+
+    def revoke_consent(self, app_id: str) -> None:
+        self._delete(f"auth/consents/{app_id}")
+
