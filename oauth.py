@@ -107,16 +107,20 @@ def login() -> dict:
         raise SystemExit("No code received from Qonic!")
 
     # 4) Exchange code for tokens (include codeVerifier)
+    # Public clients have no secret; omit client_secret when not configured.
+    token_data = {
+        "client_id": CLIENT_ID,
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+        "code_verifier": code_verifier,
+        "grant_type": "authorization_code",
+    }
+    if CLIENT_SECRET:
+        token_data["client_secret"] = CLIENT_SECRET
+
     result = requests.post(
         f"{API_URL}/auth/token",
-        data={
-            "client_id": CLIENT_ID,
-            "client_secret": CLIENT_SECRET,
-            "code": code,
-            "redirect_uri": REDIRECT_URI,
-            "code_verifier": code_verifier,
-            "grant_type": "authorization_code"
-        },
+        data=token_data,
         timeout=30,
     ).json()
 
