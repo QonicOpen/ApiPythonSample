@@ -77,7 +77,7 @@ def get_client_id() -> str:
     response = requests.get(f"{API_URL}/public-api-applications/config", timeout=30)
     response.raise_for_status()
     applications = response.json()
-    client_id = applications.get(APPLICATION_KEY, {}).get("clientId")
+    client_id = applications.get(APPLICATION_KEY)
     if not client_id:
         raise SystemExit(
             f"No default Qonic public API application client id found for {APPLICATION_KEY}. "
