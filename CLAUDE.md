@@ -18,7 +18,7 @@ ApiPythonSample — a public sample project demonstrating how to authenticate wi
 
 ```bash
 # Setup
-cp .env.example .env     # Copy env template, then fill in credentials
+cp .env.example .env     # Optional: override defaults if needed
 pip install -r requirements.txt
 
 # Run
@@ -40,15 +40,15 @@ requirements.txt       # Python dependencies
 ## Key Conventions
 
 - Uses OAuth **authorization code flow with PKCE** — a local HTTP server on `QONIC_LOCAL_PORT` (default 8765) captures the callback
-- The `QONIC_REDIRECT_URI` must exactly match a whitelisted redirect URI in the Qonic Developer Portal
+- Uses Qonic's pre-registered sample public client by default; `QONIC_CLIENT_ID` can override it
+- The `QONIC_REDIRECT_URI` must exactly match a whitelisted redirect URI
 - Scopes are space-separated in `QONIC_SCOPES` (e.g., `projects:read models:read`)
 
 ## Environment Variables
 
 | Variable | Purpose |
 |---|---|
-| `QONIC_CLIENT_ID` | OAuth client ID from Developer Portal |
-| `QONIC_CLIENT_SECRET` | OAuth client secret |
+| `QONIC_CLIENT_ID` | Optional OAuth client ID override from Developer Portal |
 | `QONIC_REDIRECT_URI` | Must match a whitelisted redirect URI exactly |
 | `QONIC_LOCAL_PORT` | Local callback server port (default: 8765) |
 | `QONIC_SCOPES` | Space-separated API scopes |
