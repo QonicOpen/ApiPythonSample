@@ -256,55 +256,71 @@ def handle_locations(api: QonicApi, project_id: str):
         printMethods.printLocations(location)
         print("-----------------------------------------")
 
-    print("Add new site location")
+    # Location writes are project-scoped, but a modification session is always
+    # anchored to a model, so pick one to open the session on.
+    models = api.list_models(project_id)
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
 
-    new_site = {
-        "name": "NewLocation",
-        "type": "Site",
-        "parentGuid": None,
-    }
+    model_id = input("Enter a model id: ")
+    print()
 
-    site = api.create_location(
-        project_id,
-        new_site,
-    )
+    print("Starting modification session")
+    api.start_session(project_id, model_id)
+    try:
+        print("Add new site location")
+        new_site = {
+            "name": "NewLocation",
+            "type": "Site",
+            "parentGuid": None,
+        }
 
-    guid_site = [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"]
+        site = api.create_location(
+            project_id,
+            new_site,
+        )
 
-    print("Add new building")
-    new_building = {
-        "name": "NewBuilding",
-        "type": "Building",
-        "parentGuid": guid_site,
-    }
+        guid_site = [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"]
 
-    api.create_location(
-        project_id,
-        new_building,
-    )
+        print("Add new building")
+        new_building = {
+            "name": "NewBuilding",
+            "type": "Building",
+            "parentGuid": guid_site,
+        }
 
-    print("Update site name to newSite")
-    updated_site = {
-        "name": "newSite"
-    }
-    api.update_location(
-        project_id,
-        guid_site,
-        updated_site,
-    )
+        api.create_location(
+            project_id,
+            new_building,
+        )
 
-    print("Show added locations")
-    locations = api.get_locations(project_id)
+        print("Update site name to newSite")
+        updated_site = {
+            "name": "newSite"
+        }
+        api.update_location(
+            project_id,
+            guid_site,
+            updated_site,
+        )
 
-    for location in locations:
-        if [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"] == guid_site:
-            printMethods.printLocations(location)
+        print("Show added locations")
+        locations = api.get_locations(project_id)
 
-    print("Delete added locations")
-    api.delete_location(
-        project_id,
-        guid_site,
-    )
+        for location in locations:
+            if [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"] == guid_site:
+                printMethods.printLocations(location)
+
+        print("Delete added locations")
+        api.delete_location(
+            project_id,
+            guid_site,
+        )
+    finally:
+        print("Closing modification session")
+        api.end_session(project_id, model_id)
 
 
 def handle_custom_properties(api: QonicApi, project_id: str):
