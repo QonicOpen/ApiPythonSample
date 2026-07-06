@@ -8,9 +8,12 @@ Follow these steps to configure and run the Python example for the Qonic API.
 
 ### 1. Prerequisites
 
-- Python 3.10+
+-	Python 3.10+
+-	A Qonic Application in the [Developer Portal](https://developer.qonic.com)
 
-By default, this sample uses Qonic's pre-registered public OAuth client. To test your own app registration, set `QONIC_CLIENT_ID` to your application's client id and make sure `QONIC_REDIRECT_URI` is whitelisted.
+You’ll need:
+- Client ID and Client Secret
+- Whitelisted Redirect URI (e.g. http://localhost:8765/callback)
 
 ### 2.  Copy the environment template
 ```bash
@@ -19,6 +22,10 @@ cp .env.example .env
 
 ### 3. Configure .env
 ```bash
+# From your Developer Portal application
+QONIC_CLIENT_ID=YOUR_CLIENT_ID
+QONIC_CLIENT_SECRET=YOUR_CLIENT_SECRET
+
 # Must exactly match a whitelisted redirect URI
 QONIC_REDIRECT_URI=http://localhost:8765/callback
 
@@ -27,15 +34,12 @@ QONIC_LOCAL_PORT=8765
 
 # Space-separated scopes required for the sample
 QONIC_SCOPES=projects:read models:read
-
-# Optional: override Qonic's default sample client
-QONIC_CLIENT_ID=YOUR_CLIENT_ID
 ```
 
 **Notes**
 - QONIC_REDIRECT_URI must match a whitelisted Redirect URI exactly (scheme, host, port, path). 
 - The sample spins up a tiny local HTTP server on QONIC_LOCAL_PORT to receive the authorization code. 
-- PKCE is used out of the box; no client secret is required or sent.
+- PKCE is supported out of the box; no extra setup is required.
 
 
 ### 4. Install dependencies

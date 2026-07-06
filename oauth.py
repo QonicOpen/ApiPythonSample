@@ -18,7 +18,7 @@ SCOPE = os.getenv("QONIC_SCOPES", "projects:read projects:write models:read mode
 REDIRECT_URI = os.getenv("QONIC_REDIRECT_URI", "http://localhost:8765/callback")
 LOCAL_PORT = os.getenv("QONIC_LOCAL_PORT", 8765)
 CLIENT_ID = os.getenv("QONIC_CLIENT_ID")
-APPLICATION_KEY = "api_python_sample"
+CLIENT_SECRET = os.getenv("QONIC_CLIENT_SECRET")
 
 # --- PKCE helpers ------------------------------------------------------------
 
@@ -70,27 +70,9 @@ def run_local_server():
     server.server_close()
     return OAuthHandler.result
 
-def get_client_id() -> str:
-    if CLIENT_ID:
-        return CLIENT_ID
-
-    response = requests.get(f"{API_URL}/public-api-applications/config", timeout=30)
-    response.raise_for_status()
-    applications = response.json()
-    client_id = applications.get(APPLICATION_KEY)
-    if not client_id:
-        raise SystemExit(
-            f"No default Qonic public API application client id found for {APPLICATION_KEY}. "
-            "Set QONIC_CLIENT_ID to use your own Developer Portal application."
-        )
-
-    return client_id
-
 # --- Main login flow (now with PKCE) ----------------------------------------
 
 def login() -> dict:
-    client_id = get_client_id()
-
     # 1) Prepare PKCE + state
     code_verifier = make_code_verifier(64)
     code_challenge = make_code_challenge(code_verifier)
@@ -98,7 +80,7 @@ def login() -> dict:
 
     # 2) Open authorize URL (with PKCE + state)
     params = {
-        "client_id": client_id,
+        "client_id": CLIENT_ID,
         "scope": SCOPE,
         "redirect_uri": REDIRECT_URI,
         "state": state,
@@ -128,7 +110,8 @@ def login() -> dict:
     result = requests.post(
         f"{API_URL}/auth/token",
         data={
-            "client_id": client_id,
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
             "code": code,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": code_verifier,
