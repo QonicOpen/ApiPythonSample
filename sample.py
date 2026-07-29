@@ -487,19 +487,23 @@ def handle_delete_product(api: QonicApi, project_id: str):
 
 
 def handle_create_model(api: QonicApi, project_id: str):
-    print("Requesting upload URL")
-    upload_url = api.get_upload_url()
-    print("Upload URL received")
     local_path = input("Enter the path to the local model file to upload: ").strip()
     while not local_path or not os.path.isfile(local_path):
         if not local_path:
             print("No file path provided")
-        if not os.path.isfile(local_path):
+        else:
             print("File does not exist")
 
         local_path = input("Enter the path to the local model file to upload: ").strip()
 
     upload_file_name = os.path.basename(local_path)
+
+    print("Requesting upload URL")
+    upload = api.get_upload_url(upload_file_name)
+    upload_url = upload["uploadUrl"]
+    upload_key = upload["key"]
+    print("Upload URL received")
+
     print(f"Uploading {upload_file_name} to storage")
     with open(local_path, "rb") as f:
         resp = requests.put(upload_url, data=f)
@@ -510,7 +514,7 @@ def handle_create_model(api: QonicApi, project_id: str):
     result = api.create_model(
         project_id,
         model_name=model_name,
-        upload_url=upload_url,
+        upload_key=upload_key,
         upload_file_name=upload_file_name,
         tags=["Architecture"],
     )

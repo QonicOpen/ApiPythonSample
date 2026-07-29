@@ -113,15 +113,11 @@ class QonicApi:
         return self._post(f"projects/{project_id}/models/{model_id}/products/quantities/query", json=body)
 
     def get_quantities_result_url(self, project_id: str, model_id: str, operation_id: str) -> str:
-        resp = self._request(
-            "GET",
-            f"projects/{project_id}/models/{model_id}/products/quantities/{operation_id}/result",
-            allow_redirects=False,
-        )
-        location = resp.headers.get("Location")
-        if not location:
-            raise QonicApiError(resp)
-        return location
+        data = self.get(f"projects/{project_id}/models/{model_id}/products/quantities/{operation_id}/result")
+        download_url = data.get("downloadUrl")
+        if not download_url:
+            raise ValueError("The API returned no download url for the quantities result")
+        return download_url
 
     def get_operation(self, operation_id: str) -> Dict[str, Any]:
         return self.get(f"operations/{operation_id}")
@@ -159,23 +155,32 @@ class QonicApi:
     def discard_changes(self, project_id: str, model_id: str) -> None:
         self._post(f"projects/{project_id}/models/{model_id}/discard")
 
-    def get_upload_url(self) -> str:
-        data = self.get("upload-url")
-        return data["uploadUrl"]
+    def get_upload_url(self, file_name: Optional[str] = None) -> Dict[str, str]:
+        """Request a single upload slot.
+
+        Returns a dict with 'uploadUrl' (where to PUT the file) and 'key'
+        (what to pass back as uploadKey when creating the model).
+        """
+        params = {"fileName": file_name} if file_name else None
+        data = self.get("files/upload-url", params=params)
+        items = data.get("items") or []
+        if not items:
+            raise ValueError("The API returned no upload url")
+        return items[0]
 
     def create_model(
             self,
             project_id: str,
             *,
             model_name: str,
-            upload_url: str,
+            upload_key: str,
             upload_file_name: str,
             tags: Optional[List[str]] = None,
             default_role: Optional[str] = None,
     ) -> Dict[str, Any]:
         body = {
             "modelName": model_name,
-            "uploadUrl": upload_url,
+            "uploadKey": upload_key,
             "uploadFileName": upload_file_name,
         }
         if tags is not None:
@@ -189,15 +194,11 @@ class QonicApi:
         return self._post(f"projects/{project_id}/models/{model_id}/export-ifc")
 
     def get_export_ifc_result_url(self, project_id: str, model_id: str, operation_id: str) -> str:
-        resp = self._request(
-            "GET",
-            f"projects/{project_id}/models/{model_id}/export-ifc/{operation_id}/result",
-            allow_redirects=False,
-        )
-        location = resp.headers.get("Location")
-        if not location:
-            raise QonicApiError(resp)
-        return location
+        data = self.get(f"projects/{project_id}/models/{model_id}/export-ifc/{operation_id}/result")
+        download_url = data.get("downloadUrl")
+        if not download_url:
+            raise ValueError("The API returned no download url for the ifc export")
+        return download_url
 
     def list_codification_libraries(self, project_id: str) -> List[Dict[str, Any]]:
         data = self.get(f"projects/{project_id}/codifications")
