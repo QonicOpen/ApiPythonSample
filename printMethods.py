@@ -6,7 +6,7 @@ def printCodificationLibrary(data):
     print("Codes:")
     
     # Loop through classifications and properties
-    for classification in data["codes"]:
+    for classification in data.get("codes") or []:
         print(f" {classification['identification']} {classification['name']}")
         print("-----------------------------------------")
 

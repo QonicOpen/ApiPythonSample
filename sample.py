@@ -141,57 +141,75 @@ def handle_codifications(api: QonicApi, project_id: str):
         print("No codification libraries found")
         return
 
-    printMethods.printCodificationLibrary(libraries[0])
+    first_library = api.get_codification_library(project_id, libraries[0]["guid"])
+    printMethods.printCodificationLibrary(first_library)
 
-    print("Adding new TestCodificationLibrary")
-    data = {
-        "name": "CodificationTestLibrary",
-        "description": "codification library for testing",
-    }
+    # Codification writes are project-scoped, but a modification session is
+    # always anchored to a model, so pick one to open the session on.
+    models = api.list_models(project_id)
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
 
-    new_library = api.create_codification_library(project_id, data)
+    model_id = input("Enter a model id: ")
+    print()
 
-    library_id = new_library["guid"]
+    print("Starting modification session")
+    api.start_session(project_id, model_id)
+    try:
+        print("Adding new TestCodificationLibrary")
+        data = {
+            "name": "CodificationTestLibrary",
+            "description": "codification library for testing",
+        }
 
-    new_code_to_add = {
-        "name": "NewRootCode",
-        "identification": "0",
-        "description": "NewCodeForTesting",
-        "parentId": None,
-    }
-    print("Adding new root code the library")
-    new_code = api.create_classification_code(
-        project_id,
-        library_id,
-        new_code_to_add,
-    )
+        new_library = api.create_codification_library(project_id, data)
 
-    print("updating the name of the new code from NewRootcode to  updatedName")
-    updated_code = {
-        "name": "updatedName"
-    }
-    api.update_classification_code(
-        project_id,
-        library_id,
-        new_code["guid"],
-        updated_code,
-    )
+        library_id = new_library["guid"]
 
-    print("Show new library")
-    newly_added_library = api.get_codification_library(project_id, library_id)
-    printMethods.printCodificationLibrary(newly_added_library)
+        new_code_to_add = {
+            "name": "NewRootCode",
+            "identification": "0",
+            "description": "NewCodeForTesting",
+            "parentId": None,
+        }
+        print("Adding new root code the library")
+        new_code = api.create_classification_code(
+            project_id,
+            library_id,
+            new_code_to_add,
+        )
 
-    print("Delete newly added code")
-    api.delete_classification_code(
-        project_id,
-        library_id,
-        new_code["guid"],
-    )
-    print("Delete new library")
-    api.delete_codification_library(
-        project_id,
-        library_id,
-    )
+        print("updating the name of the new code from NewRootcode to  updatedName")
+        updated_code = {
+            "name": "updatedName"
+        }
+        api.update_classification_code(
+            project_id,
+            library_id,
+            new_code["guid"],
+            updated_code,
+        )
+
+        print("Show new library")
+        newly_added_library = api.get_codification_library(project_id, library_id)
+        printMethods.printCodificationLibrary(newly_added_library)
+
+        print("Delete newly added code")
+        api.delete_classification_code(
+            project_id,
+            library_id,
+            new_code["guid"],
+        )
+        print("Delete new library")
+        api.delete_codification_library(
+            project_id,
+            library_id,
+        )
+    finally:
+        print("Closing modification session")
+        api.end_session(project_id, model_id)
 
 
 def handle_materials(api: QonicApi, project_id: str):
@@ -204,48 +222,65 @@ def handle_materials(api: QonicApi, project_id: str):
 
     printMethods.printMaterials(materials["materialProperties"][0])
 
-    new_library = api.create_material_library(
-        project_id,
-        {"Name": "TestMaterial"},
-    )
+    # Material writes are project-scoped, but a modification session is always
+    # anchored to a model, so pick one to open the session on.
+    models = api.list_models(project_id)
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
 
-    library_id = new_library["guid"]
-    new_material = {
-        "name": "Concrete",
-        "description": "test",
-        "color": "#785B3DFF",
-    }
-    print("Adding new material to the library")
-    new_material = api.create_material(
-        project_id,
-        library_id,
-        new_material,
-    )
+    model_id = input("Enter a model id: ")
+    print()
 
-    updated_material = {
-        "name": "Concrete",
-        "description": "concrete test material",
-        "color": "#49C73EFF",
-    }
-    new_material_id = new_material["guid"]
-    api.update_material(
-        project_id,
-        library_id,
-        new_material_id,
-        updated_material,
-    )
-    materials = api.get_material_overview(project_id)
+    print("Starting modification session")
+    api.start_session(project_id, model_id)
+    try:
+        new_library = api.create_material_library(
+            project_id,
+            {"Name": "TestMaterial"},
+        )
 
-    printMethods.printMaterials(
-        [lib for lib in materials["materialProperties"] if lib["guid"] == library_id][0]
-    )
+        library_id = new_library["guid"]
+        new_material = {
+            "name": "Concrete",
+            "description": "test",
+            "color": "#785B3DFF",
+        }
+        print("Adding new material to the library")
+        new_material = api.create_material(
+            project_id,
+            library_id,
+            new_material,
+        )
 
-    print("Delete material again")
-    api.delete_material(
-        project_id,
-        library_id,
-        new_material_id,
-    )
+        updated_material = {
+            "name": "Concrete",
+            "description": "concrete test material",
+            "color": "#49C73EFF",
+        }
+        new_material_id = new_material["guid"]
+        api.update_material(
+            project_id,
+            library_id,
+            new_material_id,
+            updated_material,
+        )
+        materials = api.get_material_overview(project_id)
+
+        printMethods.printMaterials(
+            [lib for lib in materials["materialProperties"] if lib["guid"] == library_id][0]
+        )
+
+        print("Delete material again")
+        api.delete_material(
+            project_id,
+            library_id,
+            new_material_id,
+        )
+    finally:
+        print("Closing modification session")
+        api.end_session(project_id, model_id)
 
 
 def handle_locations(api: QonicApi, project_id: str):
@@ -255,55 +290,71 @@ def handle_locations(api: QonicApi, project_id: str):
         printMethods.printLocations(location)
         print("-----------------------------------------")
 
-    print("Add new site location")
+    # Location writes are project-scoped, but a modification session is always
+    # anchored to a model, so pick one to open the session on.
+    models = api.list_models(project_id)
+    print("your models:")
+    for model in models:
+        print(f"{model['id']} - {model['name']}")
+    print()
 
-    new_site = {
-        "name": "NewLocation",
-        "type": "Site",
-        "parentGuid": None,
-    }
+    model_id = input("Enter a model id: ")
+    print()
 
-    site = api.create_location(
-        project_id,
-        new_site,
-    )
+    print("Starting modification session")
+    api.start_session(project_id, model_id)
+    try:
+        print("Add new site location")
+        new_site = {
+            "name": "NewLocation",
+            "type": "Site",
+            "parentGuid": None,
+        }
 
-    guid_site = [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"]
+        site = api.create_location(
+            project_id,
+            new_site,
+        )
 
-    print("Add new building")
-    new_building = {
-        "name": "NewBuilding",
-        "type": "Building",
-        "parentGuid": guid_site,
-    }
+        guid_site = [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"]
 
-    api.create_location(
-        project_id,
-        new_building,
-    )
+        print("Add new building")
+        new_building = {
+            "name": "NewBuilding",
+            "type": "Building",
+            "parentGuid": guid_site,
+        }
 
-    print("Update site name to newSite")
-    updated_site = {
-        "name": "newSite"
-    }
-    api.update_location(
-        project_id,
-        guid_site,
-        updated_site,
-    )
+        api.create_location(
+            project_id,
+            new_building,
+        )
 
-    print("Show added locations")
-    locations = api.get_locations(project_id)
+        print("Update site name to newSite")
+        updated_site = {
+            "name": "newSite"
+        }
+        api.update_location(
+            project_id,
+            guid_site,
+            updated_site,
+        )
 
-    for location in locations:
-        if [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"] == guid_site:
-            printMethods.printLocations(location)
+        print("Show added locations")
+        locations = api.get_locations(project_id)
 
-    print("Delete added locations")
-    api.delete_location(
-        project_id,
-        guid_site,
-    )
+        for location in locations:
+            if [prop for prop in site["properties"] if prop["name"] == "Guid"][0]["value"] == guid_site:
+                printMethods.printLocations(location)
+
+        print("Delete added locations")
+        api.delete_location(
+            project_id,
+            guid_site,
+        )
+    finally:
+        print("Closing modification session")
+        api.end_session(project_id, model_id)
 
 
 def handle_custom_properties(api: QonicApi, project_id: str):
@@ -312,30 +363,9 @@ def handle_custom_properties(api: QonicApi, project_id: str):
     custom_properties = api.get_custom_properties(project_id)
     printMethods.printCustomProperties(custom_properties)
 
-    print("Create new propertyset: TestSet")
-
-    property_set_to_add = {
-        "Name": "TestSet",
-        "EntityTypes": [{"Value": "IfcWall"}, {"Value": "IfcBeam"}, {"Value": "IfcSlab"}],
-    }
-    added_set = api.create_property_set(
-        project_id,
-        property_set_to_add,
-    )
-
-    print("Add property to set: TestProperty")
-
-    property_to_add = {
-        "Name": "TestProperty",
-        "DataType": "String",
-    }
-
-    api.add_property_definition(
-        project_id,
-        added_set["id"],
-        property_to_add,
-    )
-
+    # Property-set and property-definition writes are project-scoped, but a
+    # modification session is always anchored to a model, so pick one and open
+    # the session before any write (including create_property_set).
     print("Choose model to add this property to")
 
     models = api.list_models(project_id)
@@ -347,25 +377,49 @@ def handle_custom_properties(api: QonicApi, project_id: str):
     model_id = input("Enter a model id: ")
     print()
 
-    print("Querying the Guid, Class, Name fields, filtered on Class Wall...")
-    print()
-
-    fields = ["Guid", "Class", "Name"]
-    filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
-    properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
-
-    print()
-    for row in properties:
-        print(f"{row}")
-
-    print("Adding test property to first wall")
-    print("  Starting modification session")
-    if not properties:
-        print("No walls found")
-        return
-
+    print("Starting modification session")
     api.start_session(project_id, model_id)
     try:
+        print("Create new propertyset: TestSet")
+
+        property_set_to_add = {
+            "Name": "TestSet",
+            "EntityTypes": [{"Value": "IfcWall"}, {"Value": "IfcBeam"}, {"Value": "IfcSlab"}],
+        }
+        added_set = api.create_property_set(
+            project_id,
+            property_set_to_add,
+        )
+
+        print("Add property to set: TestProperty")
+
+        property_to_add = {
+            "Name": "TestProperty",
+            "DataType": "String",
+        }
+
+        api.add_property_definition(
+            project_id,
+            added_set["id"],
+            property_to_add,
+        )
+
+        print("Querying the Guid, Class, Name fields, filtered on Class Wall...")
+        print()
+
+        fields = ["Guid", "Class", "Name"]
+        filters: list[ProductFilter] = [{"property": "Class", "value": "Wall", "operator": "Contains"}]
+        properties = api.query_products(project_id, model_id, fields=fields, filters=filters)
+
+        print()
+        for row in properties:
+            print(f"{row}")
+
+        if not properties:
+            print("No walls found")
+            return
+
+        print("Adding test property to first wall")
         changes = {
             "add": {
                 "TestProperty": {
@@ -433,19 +487,23 @@ def handle_delete_product(api: QonicApi, project_id: str):
 
 
 def handle_create_model(api: QonicApi, project_id: str):
-    print("Requesting upload URL")
-    upload_url = api.get_upload_url()
-    print("Upload URL received")
     local_path = input("Enter the path to the local model file to upload: ").strip()
     while not local_path or not os.path.isfile(local_path):
         if not local_path:
             print("No file path provided")
-        if not os.path.isfile(local_path):
+        else:
             print("File does not exist")
 
         local_path = input("Enter the path to the local model file to upload: ").strip()
 
     upload_file_name = os.path.basename(local_path)
+
+    print("Requesting upload URL")
+    upload = api.get_upload_url(upload_file_name)
+    upload_url = upload["uploadUrl"]
+    upload_key = upload["key"]
+    print("Upload URL received")
+
     print(f"Uploading {upload_file_name} to storage")
     with open(local_path, "rb") as f:
         resp = requests.put(upload_url, data=f)
@@ -456,7 +514,7 @@ def handle_create_model(api: QonicApi, project_id: str):
     result = api.create_model(
         project_id,
         model_name=model_name,
-        upload_url=upload_url,
+        upload_key=upload_key,
         upload_file_name=upload_file_name,
         tags=["Architecture"],
     )
