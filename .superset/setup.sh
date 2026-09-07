@@ -23,4 +23,4 @@ pip install -r requirements.txt
 echo ""
 echo "Setup complete for branch: $BRANCH_NAME"
 echo "  - Run: python sample.py"
-echo "  - Configure .env with your Client ID and Secret first"
+echo "  - Optionally configure .env with your own Client ID"

@@ -18,7 +18,7 @@ ApiPythonSample — a public sample project demonstrating how to authenticate wi
 
 ```bash
 # Setup
-cp .env.example .env     # Copy env template, then fill in credentials
+cp .env.example .env     # Copy env template, then adjust configuration if needed
 pip install -r requirements.txt
 
 # Run
@@ -47,8 +47,7 @@ requirements.txt       # Python dependencies
 
 | Variable | Purpose |
 |---|---|
-| `QONIC_CLIENT_ID` | OAuth client ID from Developer Portal |
-| `QONIC_CLIENT_SECRET` | OAuth client secret |
+| `QONIC_CLIENT_ID` | Optional OAuth client ID override from Developer Portal |
 | `QONIC_REDIRECT_URI` | Must match a whitelisted redirect URI exactly |
 | `QONIC_LOCAL_PORT` | Local callback server port (default: 8765) |
 | `QONIC_SCOPES` | Space-separated API scopes |
