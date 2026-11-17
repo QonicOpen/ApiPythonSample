@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import html
 import http.server
 import os
 import threading
@@ -40,6 +41,23 @@ def make_state(length: int = 24) -> str:
 
 # --- Local callback server ---------------------------------------------------
 
+# Browsers only let a script close tabs it opened, so this page can't close itself.
+CALLBACK_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qonic sign-in</title>
+<style>
+  body {{ margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+         font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0f1f2a; color: #e8eef2; }}
+  p {{ max-width: 32rem; margin: 0 1rem; font-size: 1.1rem; line-height: 1.5; text-align: center; }}
+</style>
+</head>
+<body><p>{message}</p></body>
+</html>
+"""
+
 class OAuthHandler(http.server.BaseHTTPRequestHandler):
     result = {}
 
@@ -55,9 +73,18 @@ class OAuthHandler(http.server.BaseHTTPRequestHandler):
         OAuthHandler.result["state"] = qs.get("state", [None])[0]
         OAuthHandler.result["error"] = qs.get("error", [None])[0]
 
+        error = OAuthHandler.result["error"]
+        if error:
+            message = f"Qonic sign-in failed: {html.escape(error)}. Return to the terminal for details."
+        else:
+            message = "Signed in to Qonic. You can close this tab and return to the terminal."
+        body = CALLBACK_PAGE.format(message=message).encode("utf-8")
+
         self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(b"<h3>Qonic OAuth completed. You can close this tab.</h3>")
+        self.wfile.write(body)
 
     def log_message(self, fmt, *args):
         return
